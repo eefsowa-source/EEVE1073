@@ -10,10 +10,10 @@
 - **Max for Live 익스터널** — Cycling '74 min-devkit (`Max/`)
 
 두 타겟은 `Shared/EeveCompressorCore.h`의 DSP 코어를 공유합니다.
-`Shared/EeveCompressorCore.h`의 `processSample()`은 현재 자리표시용
-비헤이비어럴 모델이며, 블루프린트에서 설명하는 FET 게인 리덕션·
-program-dependent attack/release·British mode 회로 모델로 교체해야
-합니다.
+`Shared/EeveCompressorCore.h`의 `processSample()`은 현재 피드백 검출·
+레이쇼별 내부 threshold 이동·soft-knee·British mode를 반영한
+비헤이비어럴 모델이며, 블루프린트에서 목표로 하는 full WDF/MNA
+회로 시뮬레이션은 아직 아닙니다.
 
 ## 1. VST3/AU 플러그인 빌드
 
@@ -65,7 +65,7 @@ zip으로 묶어 notarization 서비스에 제출해야 합니다 (개별 dylib�
 ### 설정
 
 ```bash
-git submodule add --recursive https://github.com/Cycling74/min-devkit ThirdParty/min-devkit
+git submodule add https://github.com/Cycling74/min-devkit ThirdParty/min-devkit
 git submodule update --init --recursive
 ```
 
@@ -76,24 +76,30 @@ cmake -B build-max -GXcode -DEEVE_BUILD_PLUGIN=OFF -DEEVE_BUILD_MAX_EXTERNAL=ON
 cmake --build build-max --config Release
 ```
 
-빌드 결과물 `eeve1073~.mxo`를 Max의 검색 경로(예:
-`~/Documents/Max 9/Library/`)에 복사한 뒤, Max for Live 디바이스
-편집기에서 `eeve1073~ [signal in] [signal out]` 오브젝트로 불러와
-UI(다이얼/노브)를 attribute(`input`, `output`, `attack`, `release`,
-`ratio`)에 연결하고 `.amxd`로 저장하면 Ableton Live에서 사용할 수
-있습니다.
+빌드 결과물은 `Max/externals/eeve1073~.mxo`에 생성됩니다 (x86_64 +
+arm64 universal binary로 검증됨). 이 폴더를 Max의 검색 경로에
+추가하거나(예: Max 환경설정 > File Preferences에서 `Max/externals`
+경로 추가), `~/Documents/Max 9/Library/`로 복사한 뒤, Max for Live
+디바이스 편집기에서 `eeve1073~ [signal in] [signal out]` 오브젝트로
+불러와 UI(다이얼/노브)를 attribute(`input`, `output`, `attack`,
+`release`, `ratio`)에 연결하고 `.amxd`로 저장하면 Ableton Live에서
+사용할 수 있습니다.
 
-> 참고: min-devkit은 자체 프로젝트 레이아웃(`source/projects/...`)을
-> 기준으로 패키징 스크립트가 동작합니다. `Max/CMakeLists.txt`는
-> 최소 스캐폴드이며, min-devkit을 실제로 추가한 뒤 그 저장소의
-> `CMakeLists.txt` 관례에 맞춰 include 경로/패키징 단계를 검증·조정하세요.
+프로젝트 구조는 min-devkit의 관례를 따릅니다: `Max/eeve1073_tilde/`
+폴더 이름 자체가 오브젝트 이름이 되고, 그 안의
+`eeve1073_tilde.cpp`가 `${PROJECT_NAME}.cpp`로 빌드됩니다. 새 Max
+오브젝트를 추가하려면 같은 방식으로 `Max/<object_name>/` 폴더를
+만들고 `Max/CMakeLists.txt`에 `add_subdirectory(<object_name>)`을
+추가하세요.
 
 ## 디렉터리 구조
 
 ```
-CMakeLists.txt              최상위 빌드 (플러그인/Max 타겟 스위치)
-Shared/EeveCompressorCore.h 공유 DSP 코어 (플러그인·Max 익스터널 공용)
-Source/                     JUCE VST3/AU/Standalone 플러그인 소스
-Max/                        Max for Live 익스터널 (min-devkit)
-ThirdParty/                 서브모듈 (JUCE, min-devkit) — git에는 미포함
+CMakeLists.txt                    최상위 빌드 (플러그인/Max 타겟 스위치)
+Shared/EeveCompressorCore.h       공유 DSP 코어 (플러그인·Max 익스터널 공용)
+Source/                           JUCE VST3/AU/Standalone 플러그인 소스
+Max/CMakeLists.txt                Max 타겟 진입점
+Max/eeve1073_tilde/               eeve1073~ 오브젝트 (min-devkit 관례)
+Max/externals/                    빌드 결과물 (.mxo, git에는 미포함)
+ThirdParty/                       서브모듈 (JUCE, min-devkit) — git에는 미포함
 ```
