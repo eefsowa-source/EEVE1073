@@ -3,11 +3,14 @@
 
 namespace
 {
-constexpr auto paramInput   = "input";
-constexpr auto paramOutput  = "output";
-constexpr auto paramAttack  = "attack";
-constexpr auto paramRelease = "release";
-constexpr auto paramRatio   = "ratio";
+constexpr auto paramInput      = "input";
+constexpr auto paramOutput     = "output";
+constexpr auto paramAttack     = "attack";
+constexpr auto paramRelease    = "release";
+constexpr auto paramRatio      = "ratio";
+constexpr auto paramRatioTrim  = "ratioTrim";
+constexpr auto paramAttackTrim = "attackTrim";
+constexpr auto paramPower      = "power";
 }
 
 Ee1176AudioProcessor::Ee1176AudioProcessor()
@@ -32,8 +35,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout Ee1176AudioProcessor::create
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         paramRelease, "Release", Range (50.0f, 1100.0f, 1.0f), 300.0f, " ms"));
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        paramRatio, "Ratio",
-        juce::StringArray { "4:1", "8:1", "12:1", "20:1", "All (British)" }, 0));
+        paramRatio, "Comp Ratio",
+        juce::StringArray { "4:1", "8:1", "12:1", "20:1", "All" }, 0));
+
+    // VERNIER fine-trim knobs (UA 1176 Rack Mount): continuous trim layered
+    // on top of the coarse Comp Ratio / Attack controls, centered at 0.
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        paramRatioTrim, "Ratio Vernier", Range (-1.0f, 1.0f, 0.01f), 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        paramAttackTrim, "Attack Vernier", Range (-0.15f, 0.15f, 0.001f), 0.0f, " ms"));
+
+    params.push_back (std::make_unique<juce::AudioParameterBool> (paramPower, "Power", true));
 
     return { params.begin(), params.end() };
 }
@@ -69,6 +81,8 @@ void Ee1176AudioProcessor::updateCoreParameters()
     p.releaseMs = apvts.getRawParameterValue (paramRelease)->load();
     p.ratio = static_cast<ee1176::Ratio> (
         static_cast<int> (apvts.getRawParameterValue (paramRatio)->load()));
+    p.ratioTrim = apvts.getRawParameterValue (paramRatioTrim)->load();
+    p.attackTrimMs = apvts.getRawParameterValue (paramAttackTrim)->load();
 
     for (auto& core : cores)
         core.setParameters (p);
@@ -77,6 +91,12 @@ void Ee1176AudioProcessor::updateCoreParameters()
 void Ee1176AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    // POWER switch: hard-bypass the whole unit, mirroring the real
+    // hardware's power switch turning it off (signal passes through).
+    if (apvts.getRawParameterValue (paramPower)->load() <= 0.5f)
+        return;
+
     updateCoreParameters();
 
     juce::dsp::AudioBlock<float> block (buffer);

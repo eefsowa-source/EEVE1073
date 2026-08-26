@@ -24,6 +24,8 @@
 //  - A dedicated "British mode" (all-buttons-in) state: fixed ~16:1
 //    effective ratio, faster/tighter time constants, and increased,
 //    asymmetric saturation.
+//  - VERNIER fine-trim on ratio and attack, modeled after the UA 1176 Rack
+//    Mount's small trim knobs beneath COMP RATIO and ATTACK.
 //
 // This is still a simplified behavioral model, not a full WDF/MNA circuit
 // simulation of the FET and diode network -- see the blueprint PDF for what
@@ -47,6 +49,13 @@ struct Parameters
     float attackMs = 0.4f;    // ~20us..800us in the real unit
     float releaseMs = 300.0f; // ~50ms..1.1s
     Ratio ratio = Ratio::r4to1;
+
+    // VERNIER fine-trim controls, modeled after the UA 1176 Rack Mount's
+    // small trim knobs beneath COMP RATIO and ATTACK: continuous fine
+    // adjustment layered on top of the coarse stepped selection. Range
+    // -1..1, centered (0) at no trim.
+    float ratioTrim = 0.0f;  // scales the selected ratio by +/-20%
+    float attackTrimMs = 0.0f; // added directly to attackMs, +/-0.15ms
 };
 
 class CompressorCore
@@ -82,7 +91,8 @@ public:
         const float detectLevel = std::abs (previousOutput);
         const float detectDb = gainToDb (detectLevel);
 
-        const float attackCoeff = timeToCoeff (british ? params.attackMs * 0.6f : params.attackMs);
+        const float effectiveAttackMs = params.attackMs + params.attackTrimMs;
+        const float attackCoeff = timeToCoeff (british ? effectiveAttackMs * 0.6f : effectiveAttackMs);
         const float releaseCoeff = timeToCoeff (british ? params.releaseMs * 0.5f : params.releaseMs);
         const float coeff = detectDb > envelopeDb ? attackCoeff : releaseCoeff;
         envelopeDb += coeff * (detectDb - envelopeDb);
@@ -90,7 +100,8 @@ public:
         // --- Ratio-dependent internal threshold: higher ratios push the
         // detector's effective bias point up, so the unit engages later
         // but harder on strong peaks (per blueprint).
-        const float ratioValue = british ? britishRatioValue() : ratioToValue (params.ratio);
+        const float ratioValue = (british ? britishRatioValue() : ratioToValue (params.ratio))
+                                * (1.0f + params.ratioTrim * 0.2f);
         const float thresholdDb = baseThresholdDb + ratioThresholdShiftDb (params.ratio);
 
         // --- Soft-knee downward compression in the dB domain.

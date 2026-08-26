@@ -1,14 +1,14 @@
 #pragma once
 
-#include <array>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "Ee1176LookAndFeel.h"
 
-// Rack-strip layout modeled on the classic 1176 faceplate: Input knob,
-// four square ratio pushbuttons (pressing all four engages "British mode",
-// matching the real hardware's all-buttons-in trick), a gain-reduction LED
-// meter, Attack/Release knobs, and Output -- left to right.
+// Rack-strip layout modeled on the Universal Audio 1176 Rack Mount Limiting
+// Amplifier's faceplate, left to right: INPUT, COMP RATIO knob (with a
+// VERNIER fine-trim beneath it), an analog needle VU meter reading gain
+// reduction, ATTACK (with its own VERNIER beneath it), OUTPUT, RELEASE,
+// and a small POWER rocker switch.
 class Ee1176AudioProcessorEditor : public juce::AudioProcessorEditor,
                                     private juce::Timer
 {
@@ -22,34 +22,26 @@ public:
 private:
     void timerCallback() override;
 
-    // Recomputes the "ratio" choice parameter from the four ratio button
-    // states and pushes it to the host. Called from each button's onClick.
-    void ratioButtonClicked();
-
-    // Reflects the current "ratio" parameter value onto the four button
-    // toggle states, without re-triggering ratioButtonClicked() (used on
-    // construction and to stay in sync with host automation / presets).
-    void syncRatioButtonsFromParameter();
-
     Ee1176AudioProcessor& processor;
     Ee1176LookAndFeel lookAndFeel;
 
-    juce::Slider inputSlider, attackSlider, releaseSlider, outputSlider;
-    std::array<juce::ToggleButton, 4> ratioButtons {
-        juce::ToggleButton { "4:1" }, juce::ToggleButton { "8:1" },
-        juce::ToggleButton { "12:1" }, juce::ToggleButton { "20:1" }
-    };
+    juce::Slider inputSlider, ratioSlider, ratioVernierSlider, attackSlider, attackVernierSlider,
+        outputSlider, releaseSlider;
+    juce::ToggleButton powerButton { "POWER" };
 
-    juce::Label inputLabel, attackLabel, releaseLabel, outputLabel, ratioLabel, nameplateLabel;
+    juce::Label inputLabel, ratioLabel, ratioVernierLabel, attackLabel, attackVernierLabel,
+        outputLabel, releaseLabel, nameplateLabel, meterCaptionLabel;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    std::unique_ptr<SliderAttachment> inputAttachment, attackAttachment, releaseAttachment, outputAttachment;
+    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    bool updatingRatioButtonsFromHost = false;
+    std::unique_ptr<SliderAttachment> inputAttachment, ratioAttachment, ratioVernierAttachment,
+        attackAttachment, attackVernierAttachment, outputAttachment, releaseAttachment;
+    std::unique_ptr<ButtonAttachment> powerAttachment;
 
     juce::Rectangle<int> meterBounds;
 
-    static constexpr juce::uint32 accentSteel = 0xff9aa0ab;
+    static constexpr juce::uint32 accentSteel = 0xffb7bcc8;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Ee1176AudioProcessorEditor)
 };
