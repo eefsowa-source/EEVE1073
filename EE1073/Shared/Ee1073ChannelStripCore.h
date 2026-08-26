@@ -12,7 +12,7 @@
 // Behavioral model informed by the project blueprint ("From Circuit
 // Simulation to DAW Integration..."):
 //  - Input and output transformer stages: asymmetric soft saturation with a
-//    simple one-pole "memory" term standing in for magnetic hysteresis (the
+//    one-pole "memory" term standing in for magnetic hysteresis (the
 //    core resisting changes in magnetization), so the saturation lags the
 //    instantaneous signal rather than reacting sample-instantly.
 //  - Class-A discrete gain stage: soft-clipping saturation with a shallow
@@ -216,7 +216,10 @@ private:
 
     // Asymmetric soft saturation with a lagging "memory" term standing in
     // for transformer core hysteresis: the effective drive blends the
-    // instantaneous curve with a slow-following version of itself.
+    // instantaneous curve with a slow-following version of itself. The
+    // shift-then-subtract form below guarantees transformerStage(0, ...)
+    // settles to exactly 0 in steady state -- a saturation/hysteresis
+    // stage must not inject DC on silence.
     static float transformerStage (float x, float& hysteresisState)
     {
         constexpr float drive = 1.3f;
@@ -231,10 +234,12 @@ private:
         return 0.6f * instant + 0.4f * hysteresisState;
     }
 
+    // Class-A discrete gain stage with soft clipping and 2 kHz harmonic dip
+    // applied via the shaping filter before the nonlinearity (per blueprint)
     static float classAStage (float x)
     {
         constexpr float drive = 1.15f;
-        return std::tanh (x * drive) / std::tanh (drive);
+        return std::tanh(x * drive) / std::tanh(drive);
     }
 
     void updateFilters()
@@ -246,11 +251,16 @@ private:
         highShelf.setHighShelf (12000.0f, params.highShelfGainDb, sr);
 
         // Interactive mid-band: Q narrows for small boosts/cuts near unity
-        // and widens as the amount of boost/cut increases, approximating
-        // the 1073's documented non-fixed-Q mid-band behavior. This is a
+        // and widens as the amount of boost/cut increases, approximating the
+        // 1073's documented non-fixed-Q mid-band behavior. This is a
         // simplified stand-in for the real interconnected passive network.
+        // The Q adjustment follows: Q = Q_base / (1 + |gain| * factor)
+        // Small adjustments near 0 dB keep Q wide (~1.4), large adjustments
+        // narrow the Q as expected for the 1073's interactive behavior.
         const float gainMagnitude = std::abs (params.midGainDb);
-        const float q = std::clamp (1.4f / (1.0f + gainMagnitude * 0.09f), 0.35f, 1.4f);
+        const float qBase = 1.4f;
+        const float qAdjustmentFactor = 0.1f;
+        const float q = std::clamp (qBase / (1.0f + gainMagnitude * qAdjustmentFactor), 0.35f, 1.4f);
         midPeak.setPeaking (params.midFreqHz, params.midGainDb, q, sr);
 
         harmonicShapeFilter.setPeaking (2000.0f, -2.0f, 1.2f, sr);
@@ -266,3 +276,14 @@ private:
 };
 
 } // namespace ee1073
+
+// Plugin parameter validation helper
+inline bool validateParameters (const ee1073::Parameters& p)
+{
+    // Validate frequency ranges are positive
+    return p.hpfFreqHz > 0.0f
+        && p.lowShelfFreqHz > 0.0f
+        && p.midFreqHz > 0.0f
+        && p.highShelfGainDb >= -16.0f && p.highShelfGainDb <= 16.0f;
+}
+
