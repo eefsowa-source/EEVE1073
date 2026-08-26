@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-// Shared DSP core for the EEVE1073 (1176-style FET compressor) emulation.
-// Used by both the JUCE VST3/AU plugin (Source/) and the Max for Live
-// external (Max/source/). Keep this header free of JUCE- or Max-specific
+// Shared DSP core for the EE-1176 (1176-style FET compressor) emulation.
+// Used by both the JUCE VST3/AU plugin (EE1176/Source/) and the Max for
+// Live external (EE1176/Max/). Keep this header free of JUCE- or Max-specific
 // types so it compiles identically in both targets.
 //
 // Behavioral model informed by the project PDF blueprint:
@@ -26,7 +26,7 @@
 // This is still a simplified behavioral model, not a full WDF/MNA circuit
 // simulation of the FET and diode network -- see the blueprint PDF for what
 // a circuit-accurate implementation would additionally require.
-namespace eeve
+namespace ee1176
 {
 
 enum class Ratio
@@ -192,4 +192,4 @@ private:
     Parameters params;
 };
 
-} // namespace eeve
+} // namespace ee1176

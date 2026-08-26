@@ -1,13 +1,13 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "../Shared/EeveCompressorCore.h"
+#include "../Shared/Ee1176CompressorCore.h"
 
-class EeveAudioProcessor : public juce::AudioProcessor
+class Ee1176AudioProcessor : public juce::AudioProcessor
 {
 public:
-    EeveAudioProcessor();
-    ~EeveAudioProcessor() override = default;
+    Ee1176AudioProcessor();
+    ~Ee1176AudioProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -37,7 +37,7 @@ private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateCoreParameters();
 
-    std::array<eeve::CompressorCore, 2> cores; // up to stereo
+    std::array<ee1176::CompressorCore, 2> cores; // up to stereo
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EeveAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Ee1176AudioProcessor)
 };

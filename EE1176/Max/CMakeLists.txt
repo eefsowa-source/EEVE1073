@@ -6,14 +6,14 @@
 # Setup (see top-level README.md for full instructions):
 #   git submodule add https://github.com/Cycling74/min-devkit ThirdParty/min-devkit
 #   git submodule update --init --recursive
-#   cmake -B build-max -GXcode -DEEVE_BUILD_PLUGIN=OFF -DEEVE_BUILD_MAX_EXTERNAL=ON
+#   cmake -B build-max -GXcode -DEE1176_BUILD_PLUGIN=OFF -DEE1176_BUILD_MAX_EXTERNAL=ON -DEE1073_BUILD_PLUGIN=OFF
 #   cmake --build build-max --config Release
 #
-# The actual object lives in eeve1073_tilde/, named to match min-devkit's
+# The actual object lives in ee1176_tilde/, named to match min-devkit's
 # project layout convention (the containing folder name becomes the
 # object/target name).
 
-set(MIN_DEVKIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdParty/min-devkit")
+set(MIN_DEVKIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../ThirdParty/min-devkit")
 
 if(NOT EXISTS "${MIN_DEVKIT_DIR}/source/min-api/script/min-pretarget.cmake")
     message(WARNING
@@ -23,4 +23,4 @@ if(NOT EXISTS "${MIN_DEVKIT_DIR}/source/min-api/script/min-pretarget.cmake")
     return()
 endif()
 
-add_subdirectory(eeve1073_tilde)
+add_subdirectory(ee1176_tilde)

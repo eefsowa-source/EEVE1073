@@ -1,18 +1,18 @@
-// eeve1073~ — Max/MSP external wrapping the shared EEVE1073 compressor core,
+// ee1176~ — Max/MSP external wrapping the shared EE-1176 compressor core,
 // for use inside a Max for Live device in Ableton Live.
 //
 // Built with Cycling '74's min-devkit (https://github.com/Cycling74/min-devkit).
 // See Max/CMakeLists.txt for build setup.
 
 #include "c74_min.h"
-#include "../../Shared/EeveCompressorCore.h"
+#include "../../Shared/Ee1176CompressorCore.h"
 
 using namespace c74::min;
 
-class eeve1073_tilde : public object<eeve1073_tilde>, public sample_operator<1, 1>
+class ee1176_tilde : public object<ee1176_tilde>, public sample_operator<1, 1>
 {
 public:
-    MIN_DESCRIPTION { "EEVE1073 FET-style compressor (1176 emulation core)" };
+    MIN_DESCRIPTION { "EE-1176 FET-style compressor (1176 emulation core)" };
     MIN_TAGS { "audio, dynamics" };
     MIN_AUTHOR { "EON Audio" };
     MIN_RELATED { "comp~, gain~" };
@@ -36,23 +36,23 @@ public:
         core.prepare (sampleRate);
     }
 
-    eeve1073_tilde() { core.prepare (c74::max::sys_getsr()); }
+    ee1176_tilde() { core.prepare (c74::max::sys_getsr()); }
 
     sample operator()(sample x)
     {
-        eeve::Parameters p;
+        ee1176::Parameters p;
         p.inputGainDb = static_cast<float> (input.get());
         p.outputGainDb = static_cast<float> (output.get());
         p.attackMs = static_cast<float> (attack.get());
         p.releaseMs = static_cast<float> (release.get());
-        p.ratio = static_cast<eeve::Ratio> (ratio.get());
+        p.ratio = static_cast<ee1176::Ratio> (ratio.get());
         core.setParameters (p);
 
         return core.processSample (static_cast<float> (x));
     }
 
 private:
-    eeve::CompressorCore core;
+    ee1176::CompressorCore core;
 };
 
-MIN_EXTERNAL (eeve1073_tilde);
+MIN_EXTERNAL (ee1176_tilde);

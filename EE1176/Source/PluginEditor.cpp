@@ -15,7 +15,7 @@ void setupSlider (juce::Slider& s, juce::Label& l, const juce::String& name, juc
 }
 }
 
-EeveAudioProcessorEditor::EeveAudioProcessorEditor (EeveAudioProcessor& p)
+Ee1176AudioProcessorEditor::Ee1176AudioProcessorEditor (Ee1176AudioProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
     setupSlider (inputSlider, inputLabel, "Input", *this);
@@ -40,15 +40,15 @@ EeveAudioProcessorEditor::EeveAudioProcessorEditor (EeveAudioProcessor& p)
     setSize (500, 220);
 }
 
-void EeveAudioProcessorEditor::paint (juce::Graphics& g)
+void Ee1176AudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xff2b2b2b));
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (18.0f, juce::Font::bold));
-    g.drawFittedText ("EEVE1073", getLocalBounds().removeFromTop (30), juce::Justification::centred, 1);
+    g.drawFittedText ("EE-1176", getLocalBounds().removeFromTop (30), juce::Justification::centred, 1);
 }
 
-void EeveAudioProcessorEditor::resized()
+void Ee1176AudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().withTrimmedTop (50).reduced (10);
     const int knobWidth = area.getWidth() / 5;

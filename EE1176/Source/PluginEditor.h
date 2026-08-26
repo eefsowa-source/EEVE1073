@@ -3,17 +3,17 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 
-class EeveAudioProcessorEditor : public juce::AudioProcessorEditor
+class Ee1176AudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
-    explicit EeveAudioProcessorEditor (EeveAudioProcessor&);
-    ~EeveAudioProcessorEditor() override = default;
+    explicit Ee1176AudioProcessorEditor (Ee1176AudioProcessor&);
+    ~Ee1176AudioProcessorEditor() override = default;
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    EeveAudioProcessor& processor;
+    Ee1176AudioProcessor& processor;
 
     juce::Slider inputSlider, outputSlider, attackSlider, releaseSlider;
     juce::ComboBox ratioBox;
@@ -24,5 +24,5 @@ private:
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment, attackAttachment, releaseAttachment;
     std::unique_ptr<ComboAttachment> ratioAttachment;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EeveAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Ee1176AudioProcessorEditor)
 };

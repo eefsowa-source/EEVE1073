@@ -10,7 +10,7 @@ constexpr auto paramRelease = "release";
 constexpr auto paramRatio   = "ratio";
 }
 
-EeveAudioProcessor::EeveAudioProcessor()
+Ee1176AudioProcessor::Ee1176AudioProcessor()
     : juce::AudioProcessor (BusesProperties()
                                  .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                                  .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
@@ -18,7 +18,7 @@ EeveAudioProcessor::EeveAudioProcessor()
 {
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout EeveAudioProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout Ee1176AudioProcessor::createParameterLayout()
 {
     using Range = juce::NormalisableRange<float>;
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
@@ -38,14 +38,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout EeveAudioProcessor::createPa
     return { params.begin(), params.end() };
 }
 
-void EeveAudioProcessor::prepareToPlay (double sampleRate, int)
+void Ee1176AudioProcessor::prepareToPlay (double sampleRate, int)
 {
     for (auto& core : cores)
         core.prepare (sampleRate);
     updateCoreParameters();
 }
 
-bool EeveAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool Ee1176AudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto mono = juce::AudioChannelSet::mono();
     const auto stereo = juce::AudioChannelSet::stereo();
@@ -54,21 +54,21 @@ bool EeveAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
     return (in == mono || in == stereo) && in == out;
 }
 
-void EeveAudioProcessor::updateCoreParameters()
+void Ee1176AudioProcessor::updateCoreParameters()
 {
-    eeve::Parameters p;
+    ee1176::Parameters p;
     p.inputGainDb = apvts.getRawParameterValue (paramInput)->load();
     p.outputGainDb = apvts.getRawParameterValue (paramOutput)->load();
     p.attackMs = apvts.getRawParameterValue (paramAttack)->load();
     p.releaseMs = apvts.getRawParameterValue (paramRelease)->load();
-    p.ratio = static_cast<eeve::Ratio> (
+    p.ratio = static_cast<ee1176::Ratio> (
         static_cast<int> (apvts.getRawParameterValue (paramRatio)->load()));
 
     for (auto& core : cores)
         core.setParameters (p);
 }
 
-void EeveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void Ee1176AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
     updateCoreParameters();
@@ -82,19 +82,19 @@ void EeveAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     }
 }
 
-juce::AudioProcessorEditor* EeveAudioProcessor::createEditor()
+juce::AudioProcessorEditor* Ee1176AudioProcessor::createEditor()
 {
-    return new EeveAudioProcessorEditor (*this);
+    return new Ee1176AudioProcessorEditor (*this);
 }
 
-void EeveAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void Ee1176AudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     if (auto state = apvts.copyState(); state.isValid())
         if (auto xml = state.createXml())
             copyXmlToBinary (*xml, destData);
 }
 
-void EeveAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void Ee1176AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
@@ -102,5 +102,5 @@ void EeveAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new EeveAudioProcessor();
+    return new Ee1176AudioProcessor();
 }
