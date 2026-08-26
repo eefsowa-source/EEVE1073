@@ -21,7 +21,8 @@ if(EE1176_BUILD_PLUGIN)
 
     target_sources(EE1176 PRIVATE
         Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp)
+        Source/PluginEditor.cpp
+        Source/Ee1176LookAndFeel.cpp)
 
     target_include_directories(EE1176 PRIVATE Shared)
 

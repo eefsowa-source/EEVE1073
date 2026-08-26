@@ -74,12 +74,15 @@ void Ee1176AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     updateCoreParameters();
 
     const auto numChannels = std::min (buffer.getNumChannels(), (int) cores.size());
+    float deepestGrDb = 0.0f;
     for (int ch = 0; ch < numChannels; ++ch)
     {
         auto* data = buffer.getWritePointer (ch);
         for (int i = 0; i < buffer.getNumSamples(); ++i)
             data[i] = cores[(size_t) ch].processSample (data[i]);
+        deepestGrDb = std::min (deepestGrDb, cores[(size_t) ch].getGainReductionDb());
     }
+    currentGainReductionDb.store (deepestGrDb, std::memory_order_relaxed);
 }
 
 juce::AudioProcessorEditor* Ee1176AudioProcessor::createEditor()

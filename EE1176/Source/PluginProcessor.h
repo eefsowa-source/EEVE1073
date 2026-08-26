@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "../Shared/Ee1176CompressorCore.h"
 
@@ -32,6 +33,11 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
+
+    // Most negative (deepest) gain-reduction value across all channels in
+    // the most recently processed block, in dB. Polled by the editor for
+    // the GR meter; written from the audio thread, so it's an atomic.
+    std::atomic<float> currentGainReductionDb { 0.0f };
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

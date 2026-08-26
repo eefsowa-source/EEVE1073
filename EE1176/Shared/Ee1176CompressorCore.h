@@ -122,8 +122,13 @@ public:
 
         y *= outputGain;
         previousOutput = y;
+        lastGainReductionDb = gainReductionDb;
         return y;
     }
+
+    // Gain reduction from the most recently processed sample, in dB
+    // (negative or zero). For UI metering only -- not used internally.
+    float getGainReductionDb() const { return lastGainReductionDb; }
 
 private:
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
@@ -189,6 +194,7 @@ private:
     double sr = 44100.0;
     float envelopeDb = silenceDb;
     float previousOutput = 0.0f;
+    float lastGainReductionDb = 0.0f;
     Parameters params;
 };
 
