@@ -1,3 +1,6 @@
 [submodule "ThirdParty/min-devkit"]
 	path = ThirdParty/min-devkit
 	url = https://github.com/Cycling74/min-devkit
+[submodule "ThirdParty/JUCE"]
+	path = ThirdParty/JUCE
+	url = https://github.com/juce-framework/JUCE

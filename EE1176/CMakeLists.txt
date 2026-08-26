@@ -5,6 +5,7 @@
 if(EE1176_BUILD_PLUGIN)
     juce_add_plugin(EE1176
         COMPANY_NAME "EON Audio"
+        BUNDLE_ID "com.eonaudio.ee1176"
         PLUGIN_MANUFACTURER_CODE Eone
         PLUGIN_CODE Ev76
         FORMATS VST3 AU Standalone
