@@ -98,7 +98,19 @@ Live에서 사용할 수 있습니다.
 
 - `ee1176~` attribute: `input`, `output`, `attack`, `release`, `ratio`
 - `ee1073~` attribute: `input`, `hpf_on`, `hpf_freq`, `low_freq`,
-  `low_gain`, `mid_freq`, `mid_gain`, `high_gain`, `eq_on`, `output`
+  `low_gain`, `mid_freq`, `mid_gain`, `high_gain`, `eq_on`, `output`,
+  `phase_invert`
+
+> 참고 1: JUCE 플러그인 쪽 UI에만 있는 **Power**(전체 바이패스) 스위치는
+> `ee1073~`에는 없습니다 — JUCE `AudioProcessor::processBlock`에서만
+> 처리되는 플러그인 레벨 기능이라, 공유 DSP 코어(`Ee1073ChannelStripCore.h`)
+> 밖에 있습니다. Max 쪽에서 바이패스가 필요하면 패치에서 `ee1073~` 앞뒤로
+> 신호를 직접 분기해서 처리하세요.
+>
+> 참고 2: JUCE 플러그인 UI의 HPF 노브는 `hpf_on`/`hpf_freq`를
+> "Off/50/80/160/300Hz" 5단 choice 파라미터 하나로 합쳐서 보여주지만,
+> 이는 UI 표현 방식일 뿐입니다. `ee1073~`와 공유 DSP 코어는 여전히
+> `hpf_on`(bool)/`hpf_freq`(Hz) 두 값을 그대로 사용합니다.
 
 프로젝트 구조는 min-devkit의 관례를 따릅니다: `Max/<object>_tilde/`
 폴더 이름 자체가 오브젝트 이름이 되고, 그 안의
