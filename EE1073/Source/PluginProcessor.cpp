@@ -4,7 +4,6 @@
 namespace
 {
 constexpr auto paramInput      = "input";
-constexpr auto paramHpfOn      = "hpfOn";
 constexpr auto paramHpfFreq    = "hpfFreq";
 constexpr auto paramLowFreq    = "lowFreq";
 constexpr auto paramLowGain    = "lowGain";
@@ -13,6 +12,8 @@ constexpr auto paramMidGain    = "midGain";
 constexpr auto paramHighGain   = "highGain";
 constexpr auto paramEqOn       = "eqOn";
 constexpr auto paramOutput     = "output";
+constexpr auto paramPhase      = "phaseInvert";
+constexpr auto paramPower      = "power";
 
 // Switch-position frequencies matching the real 1073's stepped controls
 // (see project blueprint).
@@ -21,7 +22,7 @@ const float lowShelfFreqs[] = { 35.0f, 60.0f, 110.0f, 220.0f };
 const float midFreqs[]      = { 360.0f, 700.0f, 1600.0f, 3200.0f, 4800.0f, 7200.0f };
 }
 
-juce::StringArray Ee1073AudioProcessor::hpfFreqChoices() { return { "50 Hz", "80 Hz", "160 Hz", "300 Hz" }; }
+juce::StringArray Ee1073AudioProcessor::hpfFreqChoices() { return { "Off", "50 Hz", "80 Hz", "160 Hz", "300 Hz" }; }
 juce::StringArray Ee1073AudioProcessor::lowShelfFreqChoices() { return { "35 Hz", "60 Hz", "110 Hz", "220 Hz" }; }
 juce::StringArray Ee1073AudioProcessor::midFreqChoices() { return { "360 Hz", "700 Hz", "1.6 kHz", "3.2 kHz", "4.8 kHz", "7.2 kHz" }; }
 
@@ -41,9 +42,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout Ee1073AudioProcessor::create
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         paramInput, "Input", Range (-20.0f, 30.0f, 0.1f), 0.0f, " dB"));
 
-    params.push_back (std::make_unique<juce::AudioParameterBool> (paramHpfOn, "HPF On", false));
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        paramHpfFreq, "HPF Freq", hpfFreqChoices(), 1));
+        paramHpfFreq, "HPF Freq", hpfFreqChoices(), 0));
 
     params.push_back (std::make_unique<juce::AudioParameterChoice> (
         paramLowFreq, "Low Freq", lowShelfFreqChoices(), 1));
@@ -62,6 +62,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout Ee1073AudioProcessor::create
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         paramOutput, "Output", Range (-30.0f, 20.0f, 0.1f), 0.0f, " dB"));
+
+    params.push_back (std::make_unique<juce::AudioParameterBool> (paramPhase, "Phase Invert", false));
+    params.push_back (std::make_unique<juce::AudioParameterBool> (paramPower, "Power", true));
 
     return { params.begin(), params.end() };
 }
@@ -86,8 +89,10 @@ void Ee1073AudioProcessor::updateCoreParameters()
 {
     ee1073::Parameters p;
     p.inputGainDb = apvts.getRawParameterValue (paramInput)->load();
-    p.hpfEnabled = apvts.getRawParameterValue (paramHpfOn)->load() > 0.5f;
-    p.hpfFreqHz = hpfFreqs[static_cast<int> (apvts.getRawParameterValue (paramHpfFreq)->load())];
+    const auto hpfIndex = static_cast<int> (apvts.getRawParameterValue (paramHpfFreq)->load());
+    p.hpfEnabled = hpfIndex > 0;
+    if (hpfIndex > 0)
+        p.hpfFreqHz = hpfFreqs[hpfIndex - 1];
     p.lowShelfFreqHz = lowShelfFreqs[static_cast<int> (apvts.getRawParameterValue (paramLowFreq)->load())];
     p.lowShelfGainDb = apvts.getRawParameterValue (paramLowGain)->load();
     p.midFreqHz = midFreqs[static_cast<int> (apvts.getRawParameterValue (paramMidFreq)->load())];
@@ -95,6 +100,7 @@ void Ee1073AudioProcessor::updateCoreParameters()
     p.highShelfGainDb = apvts.getRawParameterValue (paramHighGain)->load();
     p.eqEnabled = apvts.getRawParameterValue (paramEqOn)->load() > 0.5f;
     p.outputGainDb = apvts.getRawParameterValue (paramOutput)->load();
+    p.phaseInvert = apvts.getRawParameterValue (paramPhase)->load() > 0.5f;
 
     for (auto& core : cores)
         core.setParameters (p);
@@ -103,6 +109,13 @@ void Ee1073AudioProcessor::updateCoreParameters()
 void Ee1073AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+
+    // POWER switch: hard-bypass the whole channel strip, mirroring the
+    // real hardware's power switch turning the unit off (signal simply
+    // passes through the connector).
+    if (apvts.getRawParameterValue (paramPower)->load() <= 0.5f)
+        return;
+
     updateCoreParameters();
 
     const auto numChannels = std::min (buffer.getNumChannels(), (int) cores.size());

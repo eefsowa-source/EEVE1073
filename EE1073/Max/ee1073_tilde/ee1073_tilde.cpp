@@ -41,6 +41,8 @@ public:
         description { "EQ section in/out" } };
     attribute<number> output { this, "output", 0.0,
         description { "Output gain in dB" } };
+    attribute<bool> phase_invert { this, "phase_invert", false,
+        description { "Invert output polarity" } };
 
     ee1073_tilde() { core.prepare (c74::max::sys_getsr()); }
 
@@ -62,6 +64,7 @@ public:
         p.highShelfGainDb = static_cast<float> (high_gain.get());
         p.eqEnabled = eq_on.get();
         p.outputGainDb = static_cast<float> (output.get());
+        p.phaseInvert = phase_invert.get();
         core.setParameters (p);
 
         return core.processSample (static_cast<float> (x));

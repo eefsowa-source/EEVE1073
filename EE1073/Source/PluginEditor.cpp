@@ -4,30 +4,30 @@
 
 namespace
 {
-constexpr int headerHeight = 54;
-constexpr int sectionLabelHeight = 20;
+constexpr int frameThickness = 18;
 
-void setupSlider (juce::Slider& s, juce::Label& l, const juce::String& name,
-                   juce::Colour accent, juce::Component& parent)
+void setupKnob (juce::Slider& s, juce::Colour accent, juce::Component& parent)
 {
     s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 64, 18);
+    s.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     s.setColour (juce::Slider::rotarySliderFillColourId, accent);
     parent.addAndMakeVisible (s);
-
-    l.setText (name, juce::dontSendNotification);
-    l.setJustificationType (juce::Justification::centred);
-    l.setFont (juce::FontOptions (12.0f));
-    l.attachToComponent (&s, false);
-    parent.addAndMakeVisible (l);
 }
 
-void setupSectionHeader (juce::Label& l, const juce::String& text, juce::Colour accent, juce::Component& parent)
+void setupHeaderLabel (juce::Label& l, const juce::String& text, juce::Colour accent, juce::Component& parent)
 {
     l.setText (text, juce::dontSendNotification);
     l.setJustificationType (juce::Justification::centred);
-    l.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-    l.setColour (juce::Label::textColourId, accent.brighter (0.3f));
+    l.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    l.setColour (juce::Label::textColourId, accent.brighter (0.35f));
+    parent.addAndMakeVisible (l);
+}
+
+void setupValueLabel (juce::Label& l, juce::Colour colour, juce::Component& parent)
+{
+    l.setJustificationType (juce::Justification::centred);
+    l.setFont (juce::FontOptions (10.0f));
+    l.setColour (juce::Label::textColourId, colour);
     parent.addAndMakeVisible (l);
 }
 
@@ -47,49 +47,66 @@ Ee1073AudioProcessorEditor::Ee1073AudioProcessorEditor (Ee1073AudioProcessor& p)
 {
     setLookAndFeel (&lookAndFeel);
 
-    setupSectionHeader (sectionInput, "INPUT", juce::Colour (accentInput), *this);
-    setupSectionHeader (sectionHpf, "HPF", juce::Colour (accentHpf), *this);
-    setupSectionHeader (sectionLow, "LOW SHELF", juce::Colour (accentLow), *this);
-    setupSectionHeader (sectionMid, "MID (PARAMETRIC)", juce::Colour (accentMid), *this);
-    setupSectionHeader (sectionHigh, "HIGH SHELF 12k", juce::Colour (accentHigh), *this);
-    setupSectionHeader (sectionOutput, "OUTPUT", juce::Colour (accentOutput), *this);
+    setupHeaderLabel (inputLabel, "INPUT", juce::Colour (accentInput), *this);
+    setupHeaderLabel (highLabel, "HIGH 12k", juce::Colour (accentHigh), *this);
+    setupHeaderLabel (midLabel, "MID", juce::Colour (accentMid), *this);
+    setupHeaderLabel (lowLabel, "LOW", juce::Colour (accentLow), *this);
+    setupHeaderLabel (hpfLabel, "HPF", juce::Colour (accentHpf), *this);
+    setupHeaderLabel (outputLabel, "OUTPUT", juce::Colour (accentOutput), *this);
+    // Right (silver) panel is light -- override the default light-on-dark
+    // label/button text colours set up for the dark left panel.
+    outputLabel.setColour (juce::Label::textColourId, juce::Colour (0xff2b2f3a));
 
-    setupSlider (inputSlider, inputLabel, "Gain", juce::Colour (accentInput), *this);
-    setupSlider (lowGainSlider, lowLabel, "Gain", juce::Colour (accentLow), *this);
-    setupSlider (midGainSlider, midLabel, "Gain", juce::Colour (accentMid), *this);
-    setupSlider (highGainSlider, highLabel, "Gain", juce::Colour (accentHigh), *this);
-    setupSlider (outputSlider, outputLabel, "Gain", juce::Colour (accentOutput), *this);
+    setupKnob (inputSlider, juce::Colour (accentInput), *this);
+    setupKnob (highGainSlider, juce::Colour (accentHigh), *this);
+    setupKnob (midGainSlider, juce::Colour (accentMid), *this);
+    setupKnob (lowGainSlider, juce::Colour (accentLow), *this);
+    setupKnob (hpfSlider, juce::Colour (accentHpf), *this);
 
-    hpfFreqBox.addItemList (Ee1073AudioProcessor::hpfFreqChoices(), 1);
+    outputFader.setSliderStyle (juce::Slider::LinearVertical);
+    outputFader.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+    outputFader.setColour (juce::Slider::thumbColourId, juce::Colour (accentOutput));
+    addAndMakeVisible (outputFader);
+
     lowFreqBox.addItemList (Ee1073AudioProcessor::lowShelfFreqChoices(), 1);
     midFreqBox.addItemList (Ee1073AudioProcessor::midFreqChoices(), 1);
-    addAndMakeVisible (hpfFreqBox);
     addAndMakeVisible (lowFreqBox);
     addAndMakeVisible (midFreqBox);
 
-    addAndMakeVisible (hpfOnButton);
-    addAndMakeVisible (eqOnButton);
+    setupValueLabel (hpfValueLabel, juce::Colour (accentHpf).brighter (0.4f), *this);
+    setupValueLabel (midQLabel, juce::Colour (accentMid).withAlpha (0.85f), *this);
 
-    midQLabel.setJustificationType (juce::Justification::centred);
-    midQLabel.setFont (juce::FontOptions (11.0f));
-    midQLabel.setColour (juce::Label::textColourId, juce::Colour (accentMid).withAlpha (0.75f));
-    addAndMakeVisible (midQLabel);
+    nameplateLabel.setText ("EE • 1073", juce::dontSendNotification);
+    nameplateLabel.setJustificationType (juce::Justification::centredLeft);
+    nameplateLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    nameplateLabel.setColour (juce::Label::textColourId, juce::Colour (0xffcdd6ea));
+    addAndMakeVisible (nameplateLabel);
+
+    for (auto* button : { &eqOnButton, &phaseButton })
+    {
+        button->getProperties().set ("pushbutton", true);
+        addAndMakeVisible (*button);
+    }
+    powerButton.getProperties().set ("pushbutton", false);
+    powerButton.setColour (juce::ToggleButton::textColourId, juce::Colour (0xff2b2f3a));
+    addAndMakeVisible (powerButton);
 
     auto& apvts = processor.apvts;
     inputAttachment = std::make_unique<SliderAttachment> (apvts, "input", inputSlider);
+    hpfAttachment = std::make_unique<SliderAttachment> (apvts, "hpfFreq", hpfSlider);
     lowGainAttachment = std::make_unique<SliderAttachment> (apvts, "lowGain", lowGainSlider);
     midGainAttachment = std::make_unique<SliderAttachment> (apvts, "midGain", midGainSlider);
     highGainAttachment = std::make_unique<SliderAttachment> (apvts, "highGain", highGainSlider);
-    outputAttachment = std::make_unique<SliderAttachment> (apvts, "output", outputSlider);
+    outputAttachment = std::make_unique<SliderAttachment> (apvts, "output", outputFader);
 
-    hpfFreqAttachment = std::make_unique<ComboAttachment> (apvts, "hpfFreq", hpfFreqBox);
     lowFreqAttachment = std::make_unique<ComboAttachment> (apvts, "lowFreq", lowFreqBox);
     midFreqAttachment = std::make_unique<ComboAttachment> (apvts, "midFreq", midFreqBox);
 
-    hpfOnAttachment = std::make_unique<ButtonAttachment> (apvts, "hpfOn", hpfOnButton);
     eqOnAttachment = std::make_unique<ButtonAttachment> (apvts, "eqOn", eqOnButton);
+    phaseAttachment = std::make_unique<ButtonAttachment> (apvts, "phaseInvert", phaseButton);
+    powerAttachment = std::make_unique<ButtonAttachment> (apvts, "power", powerButton);
 
-    setSize (720, 300);
+    setSize (340, 680);
     startTimerHz (15);
     timerCallback();
 }
@@ -104,103 +121,114 @@ void Ee1073AudioProcessorEditor::timerCallback()
 {
     const float midGainDb = static_cast<float> (midGainSlider.getValue());
     midQLabel.setText ("Q ≈ " + juce::String (approximateMidQ (midGainDb), 2), juce::dontSendNotification);
+
+    const auto hpfChoices = Ee1073AudioProcessor::hpfFreqChoices();
+    const int hpfIndex = juce::jlimit (0, hpfChoices.size() - 1,
+                                        static_cast<int> (std::round (hpfSlider.getValue())));
+    hpfValueLabel.setText (hpfChoices[hpfIndex], juce::dontSendNotification);
 }
 
 void Ee1073AudioProcessorEditor::paint (juce::Graphics& g)
 {
-    Ee1073LookAndFeel::paintPanelBackground (g, getLocalBounds());
+    g.fillAll (juce::Colour (0xff0d0e12));
 
-    auto headerArea = getLocalBounds().removeFromTop (headerHeight);
-    g.setColour (juce::Colour (0xff11141c).withAlpha (0.55f));
-    g.fillRect (headerArea);
+    Ee1073LookAndFeel::paintWoodFrame (g, getLocalBounds(), panelBounds);
 
-    // Thin multicolour accent strip echoing the six section colours,
-    // running along the bottom edge of the header bar.
-    const juce::Colour stripColours[] = {
-        juce::Colour (accentInput), juce::Colour (accentHpf), juce::Colour (accentLow),
-        juce::Colour (accentMid), juce::Colour (accentHigh), juce::Colour (accentOutput)
-    };
-    const float stripSegmentWidth = static_cast<float> (getWidth()) / (float) std::size (stripColours);
-    for (size_t i = 0; i < std::size (stripColours); ++i)
+    Ee1073LookAndFeel::paintBrushedPanel (g, leftPanelBounds, juce::Colour (0xff262c3d),
+                                          juce::Colour (0xff181c27), true);
+    Ee1073LookAndFeel::paintBrushedPanel (g, rightPanelBounds, juce::Colour (0xffb9bfc9),
+                                          juce::Colour (0xff8b909c), true);
+
+    g.setColour (juce::Colours::black.withAlpha (0.5f));
+    g.drawVerticalLine (leftPanelBounds.getRight(), (float) panelBounds.getY(), (float) panelBounds.getBottom());
+
+    // Brand roundel at the top of the silver (fader) panel.
+    const auto logoBounds = juce::Rectangle<float> (0, 0, 40.0f, 40.0f)
+                                 .withCentre ({ (float) rightPanelBounds.getCentreX(),
+                                                (float) rightPanelBounds.getY() + 32.0f });
+    g.setColour (juce::Colour (0xff2b2f3a));
+    g.fillEllipse (logoBounds);
+    g.setColour (juce::Colour (0xffd8dde6));
+    g.drawEllipse (logoBounds, 1.5f);
+    g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    g.drawFittedText ("EE", logoBounds.toNearestInt(), juce::Justification::centred, 1);
+
+    // dB tick scale flanking the output fader, drawn from the fader's own
+    // value-to-position mapping so it always lines up with the cap.
+    if (outputFader.getHeight() > 0)
     {
-        g.setColour (stripColours[i]);
-        g.fillRect (juce::Rectangle<float> (stripSegmentWidth * (float) i, (float) headerHeight - 3.0f,
-                                             stripSegmentWidth, 3.0f));
+        g.setFont (juce::FontOptions (9.0f));
+        g.setColour (juce::Colour (0xff2b2f3a));
+        for (double db : { 20.0, 10.0, 0.0, -10.0, -20.0, -30.0 })
+        {
+            // getPositionOfValue() returns a position in the slider's own
+            // local coordinates, so offset by the slider's position within
+            // the editor to draw in the editor's paint() coordinate space.
+            const int yy = outputFader.getY() + static_cast<int> (outputFader.getPositionOfValue (db));
+            const auto text = (db > 0 ? "+" : "") + juce::String (db, 0);
+            g.drawFittedText (text, outputFader.getX() - 30, yy - 7, 26, 14, juce::Justification::centredRight, 1);
+            g.drawFittedText (text, outputFader.getRight() + 4, yy - 7, 26, 14, juce::Justification::centredLeft, 1);
+            g.drawHorizontalLine (yy, (float) outputFader.getX() - 4.0f, (float) outputFader.getX());
+        }
     }
 
-    g.setColour (juce::Colours::white);
-    g.setFont (juce::FontOptions (20.0f, juce::Font::bold));
-    g.drawFittedText ("EE-1073", headerArea.reduced (16, 0), juce::Justification::centredLeft, 1);
-    g.setFont (juce::FontOptions (12.0f));
-    g.setColour (juce::Colour (0xff8a93ab));
-    g.drawFittedText ("Neve 1073-style mic preamp + EQ", headerArea.reduced (16, 0),
-                       juce::Justification::bottomLeft, 1);
-
-    g.setColour (juce::Colour (0xff353d54));
-    for (auto x : dividerX)
-        g.drawVerticalLine (static_cast<int> (x), static_cast<float> (headerHeight) + 8.0f,
-                             static_cast<float> (getHeight()) - 8.0f);
+    // LED next to EQL/PHASE row, lit when EQ is engaged.
+    const auto ledBounds = juce::Rectangle<float> (0, 0, 7.0f, 7.0f)
+                                .withCentre ({ (float) eqOnButton.getBounds().getRight() + 12.0f,
+                                               (float) eqOnButton.getBounds().getCentreY() });
+    g.setColour (eqOnButton.getToggleState() ? juce::Colour (0xff5fd97a) : juce::Colour (0xff2a2f3a));
+    g.fillEllipse (ledBounds);
 }
 
 void Ee1073AudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().withTrimmedTop (headerHeight).reduced (12);
+    panelBounds = getLocalBounds().reduced (frameThickness);
 
-    // EQ bypass toggle lives in the header, right-aligned.
-    eqOnButton.setBounds (getWidth() - 90, 16, 80, 22);
+    const int leftWidth = juce::roundToInt (panelBounds.getWidth() * 0.62f);
+    leftPanelBounds = panelBounds.withWidth (leftWidth);
+    rightPanelBounds = panelBounds.withTrimmedLeft (leftWidth);
 
-    const int numColumns = 6;
-    const int columnWidth = area.getWidth() / numColumns;
+    // ---- Left (dark EQ) panel ----
+    auto left = leftPanelBounds.reduced (14, 10);
 
-    auto takeColumn = [&] { return area.removeFromLeft (columnWidth); };
-
-    auto inputCol = takeColumn();
-    auto hpfCol = takeColumn();
-    auto lowCol = takeColumn();
-    auto midCol = takeColumn();
-    auto highCol = takeColumn();
-    auto outputCol = takeColumn();
-
-    for (size_t i = 0; i < dividerX.size(); ++i)
-        dividerX[i] = static_cast<float> (inputCol.getX() + columnWidth * static_cast<int> (i + 1));
-
-    auto layoutColumn = [] (juce::Rectangle<int> col, juce::Label& header)
+    auto layoutKnobRow = [&] (juce::Rectangle<int> row, juce::Label& header, juce::Slider& knob, int knobSize)
     {
-        header.setBounds (col.removeFromTop (sectionLabelHeight));
-        col.removeFromTop (28); // space for the knob's attached label above it
-        return col;
+        header.setBounds (row.removeFromTop (14));
+        knob.setBounds (row.removeFromTop (knobSize).withSizeKeepingCentre (knobSize, knobSize));
+        return row; // whatever remains, for a freq combo / value label
     };
 
-    { // INPUT
-        auto col = layoutColumn (inputCol, sectionInput);
-        inputSlider.setBounds (col.removeFromTop (90).reduced (10, 0));
-    }
-    { // HPF
-        auto col = layoutColumn (hpfCol, sectionHpf);
-        hpfOnButton.setBounds (col.removeFromTop (24).reduced (8, 0));
-        col.removeFromTop (8);
-        hpfFreqBox.setBounds (col.removeFromTop (24).reduced (8, 0));
-    }
-    { // LOW SHELF
-        auto col = layoutColumn (lowCol, sectionLow);
-        lowFreqBox.setBounds (col.removeFromTop (24).reduced (8, 0));
-        col.removeFromTop (6);
-        lowGainSlider.setBounds (col.removeFromTop (70).reduced (10, 0));
-    }
-    { // MID
-        auto col = layoutColumn (midCol, sectionMid);
-        midFreqBox.setBounds (col.removeFromTop (24).reduced (8, 0));
-        col.removeFromTop (6);
-        midGainSlider.setBounds (col.removeFromTop (70).reduced (10, 0));
-        midQLabel.setBounds (col.removeFromTop (16));
-    }
-    { // HIGH SHELF
-        auto col = layoutColumn (highCol, sectionHigh);
-        col.removeFromTop (30); // no frequency selector -- fixed at 12kHz
-        highGainSlider.setBounds (col.removeFromTop (90).reduced (10, 0));
-    }
-    { // OUTPUT
-        auto col = layoutColumn (outputCol, sectionOutput);
-        outputSlider.setBounds (col.removeFromTop (90).reduced (10, 0));
-    }
+    auto inputRow = left.removeFromTop (92);
+    auto rest1 = layoutKnobRow (inputRow, inputLabel, inputSlider, 62);
+    juce::ignoreUnused (rest1);
+
+    auto highRow = left.removeFromTop (86);
+    layoutKnobRow (highRow, highLabel, highGainSlider, 56);
+
+    auto midRow = left.removeFromTop (100);
+    auto midRest = layoutKnobRow (midRow, midLabel, midGainSlider, 56);
+    midFreqBox.setBounds (midRest.removeFromTop (18).reduced (6, 0));
+    midQLabel.setBounds (midRest.removeFromTop (14));
+
+    auto lowRow = left.removeFromTop (100);
+    auto lowRest = layoutKnobRow (lowRow, lowLabel, lowGainSlider, 56);
+    lowFreqBox.setBounds (lowRest.removeFromTop (18).reduced (6, 0));
+
+    auto hpfRow = left.removeFromTop (92);
+    auto hpfRest = layoutKnobRow (hpfRow, hpfLabel, hpfSlider, 56);
+    hpfValueLabel.setBounds (hpfRest.removeFromTop (14));
+
+    auto buttonsRow = left; // remaining space
+    auto buttonsTop = buttonsRow.removeFromTop (24);
+    eqOnButton.setBounds (buttonsTop.removeFromLeft (60));
+    buttonsTop.removeFromLeft (20); // leave room for the LED drawn in paint()
+    phaseButton.setBounds (buttonsTop.removeFromLeft (60));
+    nameplateLabel.setBounds (buttonsRow.removeFromBottom (20));
+
+    // ---- Right (silver fader) panel ----
+    auto right = rightPanelBounds.reduced (0, 10);
+    right.removeFromTop (54); // logo roundel, drawn in paint()
+    powerButton.setBounds (right.removeFromBottom (26).withSizeKeepingCentre (70, 22));
+    outputLabel.setBounds (right.removeFromBottom (16));
+    outputFader.setBounds (right.reduced (46, 6));
 }

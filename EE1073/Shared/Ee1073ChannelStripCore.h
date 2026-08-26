@@ -46,6 +46,8 @@ struct Parameters
 
     bool eqEnabled = true;
     float outputGainDb = 0.0f;
+
+    bool phaseInvert = false;
 };
 
 inline bool operator== (const Parameters& a, const Parameters& b)
@@ -59,7 +61,8 @@ inline bool operator== (const Parameters& a, const Parameters& b)
         && a.midGainDb == b.midGainDb
         && a.highShelfGainDb == b.highShelfGainDb
         && a.eqEnabled == b.eqEnabled
-        && a.outputGainDb == b.outputGainDb;
+        && a.outputGainDb == b.outputGainDb
+        && a.phaseInvert == b.phaseInvert;
 }
 
 // Minimal RBJ-cookbook biquad (Direct Form I). Coefficients are recomputed
@@ -208,6 +211,10 @@ public:
 
         y = transformerStage (y, outputHysteresis);
         y *= dbToGain (params.outputGainDb);
+
+        if (params.phaseInvert)
+            y = -y;
+
         return y;
     }
 

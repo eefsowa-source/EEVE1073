@@ -3,7 +3,6 @@
 namespace
 {
 constexpr auto kPanelDark = 0xff1a1d26;
-constexpr auto kPanelLight = 0xff262b3a;
 constexpr auto kCream = 0xffe8dfc8;
 constexpr auto kCreamShadow = 0xffb3a880;
 constexpr auto kNeedleRed = 0xffc0392b;
@@ -43,7 +42,7 @@ void Ee1073LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     g.strokePath (track, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Fill arc from the 0-position (proportional 0.5 for bipolar gain
-    // params, which is what all EE-1073 knobs are) to the current value.
+    // params, which is what most EE-1073 knobs are) to the current value.
     const auto zeroProportional = (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0)
                                        ? static_cast<float> (slider.valueToProportionOfLength (0.0))
                                        : 0.0f;
@@ -55,10 +54,13 @@ void Ee1073LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     g.setColour (accent);
     g.strokePath (fill, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // Knob cap: radial gradient giving a domed metal-cream look.
+    // Knob cap: radial gradient giving a domed metal-cream look, tinted
+    // slightly by the accent colour (used for the red Input / blue HPF caps).
     const auto capRadius = radius * 0.68f;
-    juce::ColourGradient capGradient (juce::Colour (kCream).brighter (0.15f), centre.x - capRadius * 0.4f,
-                                       centre.y - capRadius * 0.5f, juce::Colour (kCreamShadow),
+    const auto capBase = juce::Colour (kCream).interpolatedWith (accent, 0.12f);
+    const auto capShadow = juce::Colour (kCreamShadow).interpolatedWith (accent, 0.18f);
+    juce::ColourGradient capGradient (capBase.brighter (0.15f), centre.x - capRadius * 0.4f,
+                                       centre.y - capRadius * 0.5f, capShadow,
                                        centre.x, centre.y + capRadius, true);
     g.setGradientFill (capGradient);
     g.fillEllipse (centre.x - capRadius, centre.y - capRadius, capRadius * 2.0f, capRadius * 2.0f);
@@ -86,14 +88,104 @@ void Ee1073LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     }
 }
 
+void Ee1073LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                                           float sliderPos, float minSliderPos, float maxSliderPos,
+                                           const juce::Slider::SliderStyle style, juce::Slider& slider)
+{
+    juce::ignoreUnused (minSliderPos, maxSliderPos, style);
+
+    const auto bounds = juce::Rectangle<int> (x, y, width, height).toFloat();
+    const auto trackX = bounds.getCentreX();
+
+    // Slot / track groove.
+    const float trackWidth = 6.0f;
+    juce::Rectangle<float> track (trackX - trackWidth * 0.5f, bounds.getY() + 6.0f, trackWidth,
+                                   bounds.getHeight() - 12.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.fillRoundedRectangle (track, trackWidth * 0.5f);
+    g.setColour (juce::Colour (kTrackDim).withAlpha (0.5f));
+    g.drawRoundedRectangle (track, trackWidth * 0.5f, 1.0f);
+
+    // Fill from the slider's 0 dB reference (proportional position for
+    // value 0) down/up to the current fader position, so the track lights
+    // up above or below unity like a channel-strip fader.
+    const auto accent = slider.findColour (juce::Slider::thumbColourId);
+    const bool hasZero = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+    const float zeroY = hasZero
+                             ? static_cast<float> (slider.getPositionOfValue (0.0))
+                             : bounds.getBottom() - 6.0f;
+    juce::Rectangle<float> fillRect (trackX - trackWidth * 0.5f, juce::jmin (zeroY, sliderPos), trackWidth,
+                                      std::abs (sliderPos - zeroY));
+    g.setColour (accent.withAlpha (0.8f));
+    g.fillRoundedRectangle (fillRect, trackWidth * 0.5f);
+
+    // Fader cap: a wide metal block with horizontal grip ridges, centred on
+    // sliderPos.
+    const float capWidth = juce::jmin (bounds.getWidth() - 4.0f, 34.0f);
+    const float capHeight = 22.0f;
+    juce::Rectangle<float> cap (trackX - capWidth * 0.5f, sliderPos - capHeight * 0.5f, capWidth, capHeight);
+
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.fillRoundedRectangle (cap.translated (0.0f, 1.5f), 3.0f);
+
+    juce::ColourGradient capGradient (juce::Colour (0xff5a6178), cap.getX(), cap.getY(),
+                                       juce::Colour (0xff23262f), cap.getX(), cap.getBottom(), false);
+    g.setGradientFill (capGradient);
+    g.fillRoundedRectangle (cap, 3.0f);
+
+    g.setColour (juce::Colour (0xff0f1116));
+    g.drawRoundedRectangle (cap, 3.0f, 1.0f);
+
+    g.setColour (juce::Colours::white.withAlpha (0.18f));
+    for (float ridgeY = cap.getY() + 5.0f; ridgeY < cap.getBottom() - 3.0f; ridgeY += 4.0f)
+        g.drawHorizontalLine (static_cast<int> (ridgeY), cap.getX() + 4.0f, cap.getRight() - 4.0f);
+
+    // Centre indicator line on the cap, matching the accent colour.
+    g.setColour (accent);
+    g.fillRect (juce::Rectangle<float> (cap.getX() + 3.0f, cap.getCentreY() - 1.0f, cap.getWidth() - 6.0f, 2.0f));
+}
+
 void Ee1073LookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
                                            bool shouldDrawButtonAsHighlighted, bool)
 {
+    const bool isOn = button.getToggleState();
+
+    if (button.getProperties().contains ("pushbutton"))
+    {
+        // Small hardware-style cream pushbutton (EQL / PHASE), lit when
+        // engaged -- matches the printed cream buttons on real 1073-style
+        // strips rather than a sliding rocker.
+        auto bounds = button.getLocalBounds().toFloat().reduced (1.0f);
+        const auto litColour = juce::Colour (0xffe8dfc8);
+        const auto dimColour = juce::Colour (0xff5a5748);
+
+        juce::ColourGradient grad (isOn ? litColour.brighter (0.1f) : dimColour.darker (0.1f),
+                                    bounds.getX(), bounds.getY(),
+                                    isOn ? litColour.darker (0.15f) : dimColour.darker (0.3f),
+                                    bounds.getX(), bounds.getBottom(), false);
+        g.setGradientFill (grad);
+        g.fillRoundedRectangle (bounds, 3.0f);
+
+        if (shouldDrawButtonAsHighlighted)
+        {
+            g.setColour (juce::Colours::white.withAlpha (0.1f));
+            g.fillRoundedRectangle (bounds, 3.0f);
+        }
+
+        g.setColour (juce::Colours::black.withAlpha (0.5f));
+        g.drawRoundedRectangle (bounds, 3.0f, 1.0f);
+
+        g.setColour (isOn ? juce::Colour (0xff2a2f3d) : juce::Colour (0xff8a8570));
+        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawFittedText (button.getButtonText(), bounds.toNearestInt(), juce::Justification::centred, 1);
+        return;
+    }
+
+    // Default: sliding rocker switch (POWER).
     auto bounds = button.getLocalBounds().toFloat();
     const auto switchWidth = juce::jmin (bounds.getWidth() * 0.4f, 34.0f);
     auto switchBounds = bounds.removeFromLeft (switchWidth).reduced (2.0f);
 
-    const bool isOn = button.getToggleState();
     const auto onColour = juce::Colour (0xff4caf7d);
     const auto offColour = juce::Colour (0xff3a4156);
 
@@ -145,19 +237,22 @@ juce::Font Ee1073LookAndFeel::getLabelFont (juce::Label&)
     return juce::FontOptions (12.0f);
 }
 
-void Ee1073LookAndFeel::paintPanelBackground (juce::Graphics& g, juce::Rectangle<int> bounds)
+void Ee1073LookAndFeel::paintBrushedPanel (juce::Graphics& g, juce::Rectangle<int> bounds,
+                                            juce::Colour top, juce::Colour bottom, bool withRivets)
 {
-    juce::ColourGradient panelGradient (juce::Colour (kPanelLight), bounds.getX(), (float) bounds.getY(),
-                                         juce::Colour (kPanelDark), bounds.getX(), (float) bounds.getBottom(), false);
+    juce::ColourGradient panelGradient (top, (float) bounds.getX(), (float) bounds.getY(),
+                                         bottom, (float) bounds.getX(), (float) bounds.getBottom(), false);
     g.setGradientFill (panelGradient);
     g.fillRect (bounds);
 
     // Faint brushed-metal streaks.
-    g.setColour (juce::Colours::white.withAlpha (0.015f));
+    g.setColour (juce::Colours::white.withAlpha (0.02f));
     for (int yy = bounds.getY(); yy < bounds.getBottom(); yy += 3)
         g.drawHorizontalLine (yy, (float) bounds.getX(), (float) bounds.getRight());
 
-    // Corner rivets.
+    if (! withRivets)
+        return;
+
     const float rivetInset = 10.0f;
     const float rivetRadius = 3.0f;
     const juce::Point<float> corners[] = {
@@ -173,4 +268,42 @@ void Ee1073LookAndFeel::paintPanelBackground (juce::Graphics& g, juce::Rectangle
         g.setColour (juce::Colour (0xff6b7390));
         g.fillEllipse (c.x - rivetRadius, c.y - rivetRadius, rivetRadius * 2.0f, rivetRadius * 2.0f);
     }
+}
+
+void Ee1073LookAndFeel::paintWoodFrame (juce::Graphics& g, juce::Rectangle<int> outerBounds,
+                                         juce::Rectangle<int> innerBounds)
+{
+    juce::Path frame;
+    frame.addRectangle (outerBounds.toFloat());
+    juce::Path hole;
+    hole.addRectangle (innerBounds.toFloat());
+    frame.setUsingNonZeroWinding (false);
+    frame.addPath (hole);
+
+    juce::ColourGradient woodGradient (juce::Colour (0xffb5793a), (float) outerBounds.getX(),
+                                        (float) outerBounds.getY(), juce::Colour (0xff8a5a28),
+                                        (float) outerBounds.getRight(), (float) outerBounds.getBottom(), false);
+    g.saveState();
+    g.reduceClipRegion (frame);
+    g.setGradientFill (woodGradient);
+    g.fillRect (outerBounds);
+
+    // Procedural vertical grain: deterministic wavy lines, varying shade,
+    // no bitmap or randomness so it renders identically every time.
+    for (int gx = outerBounds.getX(); gx < outerBounds.getRight(); gx += 3)
+    {
+        const float wobble = 6.0f * std::sin (static_cast<float> (gx) * 0.045f)
+                            + 3.0f * std::sin (static_cast<float> (gx) * 0.13f + 1.7f);
+        const float shade = 0.5f + 0.5f * std::sin (static_cast<float> (gx) * 0.08f);
+        g.setColour (juce::Colours::black.withAlpha (0.05f + 0.05f * shade));
+        g.drawLine ((float) gx, (float) outerBounds.getY(), (float) gx + wobble,
+                    (float) outerBounds.getBottom(), 1.0f);
+    }
+
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.drawRect (innerBounds.expanded (1), 2);
+    g.setColour (juce::Colours::white.withAlpha (0.12f));
+    g.drawRect (outerBounds, 1);
+
+    g.restoreState();
 }
