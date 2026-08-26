@@ -17,7 +17,9 @@
 //    instantaneous signal rather than reacting sample-instantly.
 //  - Class-A discrete gain stage: soft-clipping saturation with a shallow
 //    dip in generated harmonic energy around 2 kHz, applied via a fixed
-//    shaping filter ahead of the nonlinearity.
+//    shaping filter ahead of the nonlinearity. Both this stage and the
+//    transformer stages grow more asymmetric (more even-harmonic content)
+//    as the Input knob is driven harder.
 //  - Three-band EQ (low shelf, mid peak, high shelf) plus switchable HPF,
 //    implemented as RBJ-cookbook biquads. The mid band's Q narrows/widens
 //    with the amount of boost/cut applied, approximating the 1073's
@@ -192,7 +194,15 @@ public:
 
         float y = x * dbToGain (params.inputGainDb);
 
-        y = transformerStage (y, inputHysteresis);
+        // Even-harmonic content grows with the Input knob: driving the
+        // preamp/transformers harder biases them further from their
+        // symmetric linear region, so the saturation asymmetry (and thus
+        // 2nd-harmonic energy) scales with input drive.
+        const float inputDrive01 = std::clamp ((params.inputGainDb + 20.0f) / 50.0f, 0.0f, 1.0f);
+        const float transformerAsymmetry = lerp (0.03f, 0.16f, inputDrive01);
+        const float classAAsymmetry = lerp (0.0f, 0.12f, inputDrive01);
+
+        y = transformerStage (y, inputHysteresis, transformerAsymmetry);
 
         if (params.hpfEnabled)
             y = hpf.process (y);
@@ -200,7 +210,7 @@ public:
         // Shallow dip in generated harmonic energy around 2 kHz, applied
         // ahead of the Class-A stage's nonlinearity (see blueprint).
         y = harmonicShapeFilter.process (y);
-        y = classAStage (y);
+        y = classAStage (y, classAAsymmetry);
 
         if (params.eqEnabled)
         {
@@ -209,7 +219,7 @@ public:
             y = highShelf.process (y);
         }
 
-        y = transformerStage (y, outputHysteresis);
+        y = transformerStage (y, outputHysteresis, transformerAsymmetry);
         y *= dbToGain (params.outputGainDb);
 
         if (params.phaseInvert)
@@ -220,22 +230,27 @@ public:
 
 private:
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
+    static float lerp (float a, float b, float t) { return a + (b - a) * t; }
 
-    // Asymmetric soft saturation with a lagging "memory" term standing in
-    // for transformer core hysteresis: the effective drive blends the
-    // instantaneous curve with a slow-following version of itself. The
-    // shift-then-subtract form below guarantees transformerStage(0, ...)
-    // settles to exactly 0 in steady state -- a saturation/hysteresis
-    // stage must not inject DC on silence.
-    static float transformerStage (float x, float& hysteresisState)
+    // Soft-clipping curve biased by `asymmetry` to add even-harmonic
+    // content. The shift-then-subtract form guarantees
+    // asymmetricSoftClip(0, ...) == 0 for any asymmetry, and asymmetry == 0
+    // reduces to a plain symmetric (odd-harmonics-only) tanh soft clip.
+    static float asymmetricSoftClip (float x, float drive, float asymmetry)
+    {
+        const float shifted = x + asymmetry;
+        return std::tanh (shifted * drive) / std::tanh (drive) - std::tanh (asymmetry * drive) / std::tanh (drive);
+    }
+
+    // Saturation with a lagging "memory" term standing in for transformer
+    // core hysteresis: the effective drive blends the instantaneous curve
+    // with a slow-following version of itself.
+    static float transformerStage (float x, float& hysteresisState, float asymmetry)
     {
         constexpr float drive = 1.3f;
-        constexpr float asymmetry = 0.08f;
         constexpr float hysteresisCoeff = 0.15f; // lag amount, not sample-rate normalized (simplified)
 
-        const float shifted = x + asymmetry;
-        const float instant = std::tanh (shifted * drive) / std::tanh (drive)
-                             - std::tanh (asymmetry * drive) / std::tanh (drive);
+        const float instant = asymmetricSoftClip (x, drive, asymmetry);
 
         hysteresisState += hysteresisCoeff * (instant - hysteresisState);
         return 0.6f * instant + 0.4f * hysteresisState;
@@ -243,10 +258,10 @@ private:
 
     // Class-A discrete gain stage with soft clipping and 2 kHz harmonic dip
     // applied via the shaping filter before the nonlinearity (per blueprint)
-    static float classAStage (float x)
+    static float classAStage (float x, float asymmetry)
     {
         constexpr float drive = 1.15f;
-        return std::tanh(x * drive) / std::tanh(drive);
+        return asymmetricSoftClip (x, drive, asymmetry);
     }
 
     void updateFilters()

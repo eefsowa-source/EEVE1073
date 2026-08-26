@@ -69,10 +69,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout Ee1073AudioProcessor::create
     return { params.begin(), params.end() };
 }
 
-void Ee1073AudioProcessor::prepareToPlay (double sampleRate, int)
+void Ee1073AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    const auto numChannels = static_cast<size_t> (juce::jmax (1, getTotalNumOutputChannels()));
+    oversampling = std::make_unique<juce::dsp::Oversampling<float>> (
+        numChannels, 2 /* stages: 2^2 = 4x */, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, true);
+    oversampling->initProcessing (static_cast<size_t> (samplesPerBlock));
+    setLatencySamples (static_cast<int> (oversampling->getLatencyInSamples()));
+
     for (auto& core : cores)
-        core.prepare (sampleRate);
+        core.prepare (sampleRate * static_cast<double> (oversampling->getOversamplingFactor()));
     updateCoreParameters();
 }
 
@@ -118,13 +124,18 @@ void Ee1073AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     updateCoreParameters();
 
-    const auto numChannels = std::min (buffer.getNumChannels(), (int) cores.size());
-    for (int ch = 0; ch < numChannels; ++ch)
+    juce::dsp::AudioBlock<float> block (buffer);
+    auto oversampledBlock = oversampling->processSamplesUp (block);
+
+    const auto numChannels = std::min ((size_t) cores.size(), oversampledBlock.getNumChannels());
+    for (size_t ch = 0; ch < numChannels; ++ch)
     {
-        auto* data = buffer.getWritePointer (ch);
-        for (int i = 0; i < buffer.getNumSamples(); ++i)
-            data[i] = cores[(size_t) ch].processSample (data[i]);
+        auto* data = oversampledBlock.getChannelPointer (ch);
+        for (size_t i = 0; i < oversampledBlock.getNumSamples(); ++i)
+            data[i] = cores[ch].processSample (data[i]);
     }
+
+    oversampling->processSamplesDown (block);
 }
 
 juce::AudioProcessorEditor* Ee1073AudioProcessor::createEditor()

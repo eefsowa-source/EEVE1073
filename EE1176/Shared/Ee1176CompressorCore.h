@@ -18,7 +18,9 @@
 //    bias point rather than acting as a simple post-threshold slope).
 //  - Soft-knee gain computation in the dB domain.
 //  - FET/output-stage saturation that scales with gain-reduction depth, so
-//    heavier compression naturally adds more harmonic content.
+//    heavier compression naturally adds more harmonic content, and whose
+//    even-harmonic asymmetry grows with the Input knob (more drive biases
+//    the FET further from its symmetric linear region).
 //  - A dedicated "British mode" (all-buttons-in) state: fixed ~16:1
 //    effective ratio, faster/tighter time constants, and increased,
 //    asymmetric saturation.
@@ -117,8 +119,18 @@ public:
         // further from its linear region, adding more harmonics.
         const float driveAmount = std::clamp (-gainReductionDb / 20.0f, 0.0f, 1.0f);
         const float saturationDrive = 1.0f + driveAmount * (british ? 3.0f : 1.2f);
-        float y = british ? asymmetricSoftClip (driven, saturationDrive)
-                           : softClip (driven, saturationDrive);
+
+        // Even-harmonic content grows with the Input knob: pushing more
+        // signal into the FET biases it further from its symmetric linear
+        // region, so the asymmetry (and thus 2nd-harmonic energy) of the
+        // saturation curve scales with input drive, not just how hard the
+        // gain-reduction stage happens to be working at this instant.
+        const float inputDrive01 = std::clamp ((params.inputGainDb + 20.0f) / 60.0f, 0.0f, 1.0f);
+        const float asymmetry = british
+                                     ? lerp (0.12f, 0.30f, inputDrive01)  // already asymmetric; input pushes further
+                                     : lerp (0.0f, 0.16f, inputDrive01);  // clean at low input, more even harmonics as it's driven
+
+        float y = asymmetricSoftClip (driven, saturationDrive, asymmetry);
 
         y *= outputGain;
         previousOutput = y;
@@ -134,20 +146,19 @@ private:
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
     static float gainToDb (float g) { return 20.0f * std::log10 (std::max (g, 1.0e-6f)); }
 
-    static float softClip (float x, float drive)
-    {
-        return std::tanh (x * drive) / std::tanh (drive);
-    }
+    static float lerp (float a, float b, float t) { return a + (b - a) * t; }
 
-    // Adds a small amount of even-harmonic content by biasing the tanh
-    // curve asymmetrically, standing in for the shifted bias points and
-    // "sharper knees" the blueprint attributes to all-buttons-in mode.
-    static float asymmetricSoftClip (float x, float drive)
+    // Soft-clipping curve biased by `asymmetry` to add even-harmonic
+    // content (standing in for the shifted bias points and "sharper
+    // knees" the blueprint attributes to all-buttons-in mode, and more
+    // generally for a FET pushed harder from its linear region). The
+    // shift-then-subtract form guarantees asymmetricSoftClip(0, ...) == 0
+    // for any asymmetry, and asymmetry == 0 reduces to a plain symmetric
+    // (odd-harmonics-only) tanh soft clip.
+    static float asymmetricSoftClip (float x, float drive, float asymmetry)
     {
-        constexpr float asymmetry = 0.15f;
         const float shifted = x + asymmetry;
-        const float y = std::tanh (shifted * drive) / std::tanh (drive) - std::tanh (asymmetry * drive) / std::tanh (drive);
-        return y;
+        return std::tanh (shifted * drive) / std::tanh (drive) - std::tanh (asymmetry * drive) / std::tanh (drive);
     }
 
     float timeToCoeff (float timeMs) const

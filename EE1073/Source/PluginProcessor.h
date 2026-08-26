@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include "../Shared/Ee1073ChannelStripCore.h"
 
 class Ee1073AudioProcessor : public juce::AudioProcessor
@@ -42,6 +43,12 @@ private:
     void updateCoreParameters();
 
     std::array<ee1073::ChannelStripCore, 2> cores; // up to stereo
+
+    // 4x oversampling (2 half-band stages): the transformer/Class-A
+    // saturation stages are hard nonlinearities, so processing them at 4x
+    // reduces aliasing back into the audible band. The DSP core is
+    // prepared at sampleRate * 4 accordingly (see prepareToPlay).
+    std::unique_ptr<juce::dsp::Oversampling<float>> oversampling;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Ee1073AudioProcessor)
 };
