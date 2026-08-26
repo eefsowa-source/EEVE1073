@@ -7,6 +7,7 @@
 
 #include "c74_min.h"
 #include "../../Shared/Ee1073ChannelStripCore.h"
+#include "../../../Shared/EeFourTimesOversampler.h"
 
 using namespace c74::min;
 
@@ -44,11 +45,12 @@ public:
     attribute<bool> phase_invert { this, "phase_invert", false,
         description { "Invert output polarity" } };
 
-    ee1073_tilde() { core.prepare (c74::max::sys_getsr()); }
+    ee1073_tilde() { core.prepare (c74::max::sys_getsr() * 4.0); }
 
     void setup (double sampleRate)
     {
-        core.prepare (sampleRate);
+        core.prepare (sampleRate * 4.0);
+        oversampler.reset();
     }
 
     sample operator()(sample x)
@@ -67,11 +69,14 @@ public:
         p.phaseInvert = phase_invert.get();
         core.setParameters (p);
 
-        return core.processSample (static_cast<float> (x));
+        return oversampler.process (static_cast<float> (x), [this] (float oversampled) {
+            return core.processSample (oversampled);
+        });
     }
 
 private:
     ee1073::ChannelStripCore core;
+    ee_audio::FourTimesOversampler oversampler;
 };
 
 MIN_EXTERNAL (ee1073_tilde);

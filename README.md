@@ -25,7 +25,9 @@ Live 익스터널(`<Plugin>/Max/`)이 공유합니다. 각 `Shared/` 헤더의 D
 생기는 앨리어싱을 줄이기 위해 **기본적으로 4배 오버샘플링**
 (`juce::dsp::Oversampling`, half-band IIR 2단)을 적용합니다 — 오버샘플링은
 JUCE 플러그인에만 적용되며, min-devkit 기반 Max 익스터널
-(`ee1176~`/`ee1073~`)에는 적용되지 않습니다(호스트 SR 그대로 처리).
+(`ee1176~`/`ee1073~`)에도 공용 4배 업/다운샘플러를 적용합니다.
+Max 경로는 min-devkit의 샘플 단위 콜백에 맞춘 선형 보간 기반 경량 구현이며,
+JUCE 경로는 half-band IIR 2단을 사용합니다.
 
 ## 1. VST3/AU 플러그인 빌드
 
