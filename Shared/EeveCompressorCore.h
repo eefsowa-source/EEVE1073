@@ -8,10 +8,24 @@
 // external (Max/source/). Keep this header free of JUCE- or Max-specific
 // types so it compiles identically in both targets.
 //
-// This is a placeholder behavioral model (see the project PDF blueprint for
-// the full circuit-accurate design target: FET gain-reduction stage,
-// program-dependent attack/release, and "British mode" / all-buttons-in
-// emulation). Replace processSample() with the real WDF/behavioral model.
+// Behavioral model informed by the project PDF blueprint:
+//  - Feedback-topology detector (the FET gain-reduction stage is inside the
+//    detector's loop on real 1176 hardware, so the envelope follows the
+//    *output* rather than the input; this is the main source of the unit's
+//    program-dependent feel).
+//  - Ratio-dependent internal threshold (the Input knob drives a fixed
+//    reference level, and changing ratio shifts the detector's effective
+//    bias point rather than acting as a simple post-threshold slope).
+//  - Soft-knee gain computation in the dB domain.
+//  - FET/output-stage saturation that scales with gain-reduction depth, so
+//    heavier compression naturally adds more harmonic content.
+//  - A dedicated "British mode" (all-buttons-in) state: fixed ~16:1
+//    effective ratio, faster/tighter time constants, and increased,
+//    asymmetric saturation.
+//
+// This is still a simplified behavioral model, not a full WDF/MNA circuit
+// simulation of the FET and diode network -- see the blueprint PDF for what
+// a circuit-accurate implementation would additionally require.
 namespace eeve
 {
 
@@ -28,7 +42,7 @@ struct Parameters
 {
     float inputGainDb = 0.0f;
     float outputGainDb = 0.0f;
-    float attackMs = 0.4f;   // ~20us..800us in the real unit; placeholder ms range
+    float attackMs = 0.4f;    // ~20us..800us in the real unit
     float releaseMs = 300.0f; // ~50ms..1.1s
     Ratio ratio = Ratio::r4to1;
 };
@@ -39,10 +53,14 @@ public:
     void prepare (double sampleRate)
     {
         sr = sampleRate;
-        envelope = 0.0f;
+        reset();
     }
 
-    void reset() { envelope = 0.0f; }
+    void reset()
+    {
+        envelopeDb = silenceDb;
+        previousOutput = 0.0f;
+    }
 
     void setParameters (const Parameters& p) { params = p; }
 
@@ -52,34 +70,80 @@ public:
     {
         const float inputGain = dbToGain (params.inputGainDb);
         const float outputGain = dbToGain (params.outputGainDb);
+        const bool british = params.ratio == Ratio::allButtonsIn;
 
         const float xIn = x * inputGain;
 
-        const float rectified = std::abs (xIn);
-        const float attackCoeff = timeToCoeff (params.attackMs);
-        const float releaseCoeff = timeToCoeff (params.releaseMs);
-        const float coeff = rectified > envelope ? attackCoeff : releaseCoeff;
-        envelope += coeff * (rectified - envelope);
+        // --- Feedback-style detector: level tracked on the previous
+        // output sample, not the incoming signal, matching the 1176's
+        // detector-after-gain-element topology.
+        const float detectLevel = std::abs (previousOutput);
+        const float detectDb = gainToDb (detectLevel);
 
-        const float ratioValue = ratioToValue (params.ratio);
-        const float thresholdLinear = 1.0f; // fixed internal reference (Input knob drives level instead)
-        float gainReduction = 1.0f;
-        if (envelope > thresholdLinear)
+        const float attackCoeff = timeToCoeff (british ? params.attackMs * 0.6f : params.attackMs);
+        const float releaseCoeff = timeToCoeff (british ? params.releaseMs * 0.5f : params.releaseMs);
+        const float coeff = detectDb > envelopeDb ? attackCoeff : releaseCoeff;
+        envelopeDb += coeff * (detectDb - envelopeDb);
+
+        // --- Ratio-dependent internal threshold: higher ratios push the
+        // detector's effective bias point up, so the unit engages later
+        // but harder on strong peaks (per blueprint).
+        const float ratioValue = british ? britishRatioValue() : ratioToValue (params.ratio);
+        const float thresholdDb = baseThresholdDb + ratioThresholdShiftDb (params.ratio);
+
+        // --- Soft-knee downward compression in the dB domain.
+        const float overDb = envelopeDb - thresholdDb;
+        float gainReductionDb = 0.0f;
+        if (overDb > -kneeWidthDb * 0.5f)
         {
-            const float over = envelope / thresholdLinear;
-            gainReduction = std::pow (over, (1.0f / ratioValue) - 1.0f);
+            if (overDb <= kneeWidthDb * 0.5f)
+            {
+                // Quadratic knee blend between 0 dB and full-ratio slope.
+                const float x2 = overDb + kneeWidthDb * 0.5f;
+                gainReductionDb = -((1.0f / ratioValue - 1.0f) * (x2 * x2) / (2.0f * kneeWidthDb));
+            }
+            else
+            {
+                const float kneeReductionAtEdge = -((1.0f / ratioValue - 1.0f) * kneeWidthDb / 2.0f);
+                gainReductionDb = kneeReductionAtEdge + (overDb - kneeWidthDb * 0.5f) * (1.0f / ratioValue - 1.0f);
+            }
         }
 
-        float y = xIn * gainReduction;
+        const float gainLinear = dbToGain (gainReductionDb);
+        const float driven = xIn * gainLinear;
 
-        if (params.ratio == Ratio::allButtonsIn)
-            y = std::tanh (y * 1.5f) / 1.5f; // rough extra saturation stand-in for British mode
+        // --- FET / output-stage saturation, scaled by how hard the gain
+        // element is being driven -- heavier gain reduction biases the FET
+        // further from its linear region, adding more harmonics.
+        const float driveAmount = std::clamp (-gainReductionDb / 20.0f, 0.0f, 1.0f);
+        const float saturationDrive = 1.0f + driveAmount * (british ? 3.0f : 1.2f);
+        float y = british ? asymmetricSoftClip (driven, saturationDrive)
+                           : softClip (driven, saturationDrive);
 
-        return y * outputGain;
+        y *= outputGain;
+        previousOutput = y;
+        return y;
     }
 
 private:
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
+    static float gainToDb (float g) { return 20.0f * std::log10 (std::max (g, 1.0e-6f)); }
+
+    static float softClip (float x, float drive)
+    {
+        return std::tanh (x * drive) / std::tanh (drive);
+    }
+
+    // Adds a small amount of even-harmonic content by biasing the tanh
+    // curve asymmetrically, standing in for the shifted bias points and
+    // "sharper knees" the blueprint attributes to all-buttons-in mode.
+    static float asymmetricSoftClip (float x, float drive)
+    {
+        constexpr float asymmetry = 0.15f;
+        const float shifted = x + asymmetry;
+        const float y = std::tanh (shifted * drive) / std::tanh (drive) - std::tanh (asymmetry * drive) / std::tanh (drive);
+        return y;
+    }
 
     float timeToCoeff (float timeMs) const
     {
@@ -95,13 +159,36 @@ private:
             case Ratio::r8to1:  return 8.0f;
             case Ratio::r12to1: return 12.0f;
             case Ratio::r20to1: return 20.0f;
-            case Ratio::allButtonsIn: return 16.0f; // ~12:1 to 20:1 per blueprint
+            case Ratio::allButtonsIn: return 16.0f;
         }
         return 4.0f;
     }
 
+    static float britishRatioValue() { return 16.0f; } // ~12:1..20:1 per blueprint
+
+    // Higher ratios raise the internal threshold -- the compressor engages
+    // only on stronger peaks, per the blueprint's description of the
+    // detector's shifting bias point.
+    static float ratioThresholdShiftDb (Ratio r)
+    {
+        switch (r)
+        {
+            case Ratio::r4to1:  return 0.0f;
+            case Ratio::r8to1:  return 2.0f;
+            case Ratio::r12to1: return 3.5f;
+            case Ratio::r20to1: return 5.0f;
+            case Ratio::allButtonsIn: return 4.0f;
+        }
+        return 0.0f;
+    }
+
+    static constexpr float silenceDb = -100.0f;
+    static constexpr float baseThresholdDb = -18.0f; // fixed internal reference; Input knob drives signal against it
+    static constexpr float kneeWidthDb = 6.0f;
+
     double sr = 44100.0;
-    float envelope = 0.0f;
+    float envelopeDb = silenceDb;
+    float previousOutput = 0.0f;
     Parameters params;
 };
 
