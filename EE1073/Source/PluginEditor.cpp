@@ -7,10 +7,12 @@ namespace
 constexpr int headerHeight = 54;
 constexpr int sectionLabelHeight = 20;
 
-void setupSlider (juce::Slider& s, juce::Label& l, const juce::String& name, juce::Component& parent)
+void setupSlider (juce::Slider& s, juce::Label& l, const juce::String& name,
+                   juce::Colour accent, juce::Component& parent)
 {
     s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 64, 18);
+    s.setColour (juce::Slider::rotarySliderFillColourId, accent);
     parent.addAndMakeVisible (s);
 
     l.setText (name, juce::dontSendNotification);
@@ -20,12 +22,12 @@ void setupSlider (juce::Slider& s, juce::Label& l, const juce::String& name, juc
     parent.addAndMakeVisible (l);
 }
 
-void setupSectionHeader (juce::Label& l, const juce::String& text, juce::Component& parent)
+void setupSectionHeader (juce::Label& l, const juce::String& text, juce::Colour accent, juce::Component& parent)
 {
     l.setText (text, juce::dontSendNotification);
     l.setJustificationType (juce::Justification::centred);
     l.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-    l.setColour (juce::Label::textColourId, juce::Colour (0xffb8c4dd));
+    l.setColour (juce::Label::textColourId, accent.brighter (0.3f));
     parent.addAndMakeVisible (l);
 }
 
@@ -36,25 +38,27 @@ void setupSectionHeader (juce::Label& l, const juce::String& text, juce::Compone
 float approximateMidQ (float midGainDb)
 {
     const float gainMagnitude = std::abs (midGainDb);
-    return std::clamp (1.4f / (1.0f + gainMagnitude * 0.09f), 0.35f, 1.4f);
+    return std::clamp (1.4f / (1.0f + gainMagnitude * 0.1f), 0.35f, 1.4f);
 }
 }
 
 Ee1073AudioProcessorEditor::Ee1073AudioProcessorEditor (Ee1073AudioProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
-    setupSectionHeader (sectionInput, "INPUT", *this);
-    setupSectionHeader (sectionHpf, "HPF", *this);
-    setupSectionHeader (sectionLow, "LOW SHELF", *this);
-    setupSectionHeader (sectionMid, "MID (PARAMETRIC)", *this);
-    setupSectionHeader (sectionHigh, "HIGH SHELF 12k", *this);
-    setupSectionHeader (sectionOutput, "OUTPUT", *this);
+    setLookAndFeel (&lookAndFeel);
 
-    setupSlider (inputSlider, inputLabel, "Gain", *this);
-    setupSlider (lowGainSlider, lowLabel, "Gain", *this);
-    setupSlider (midGainSlider, midLabel, "Gain", *this);
-    setupSlider (highGainSlider, highLabel, "Gain", *this);
-    setupSlider (outputSlider, outputLabel, "Gain", *this);
+    setupSectionHeader (sectionInput, "INPUT", juce::Colour (accentInput), *this);
+    setupSectionHeader (sectionHpf, "HPF", juce::Colour (accentHpf), *this);
+    setupSectionHeader (sectionLow, "LOW SHELF", juce::Colour (accentLow), *this);
+    setupSectionHeader (sectionMid, "MID (PARAMETRIC)", juce::Colour (accentMid), *this);
+    setupSectionHeader (sectionHigh, "HIGH SHELF 12k", juce::Colour (accentHigh), *this);
+    setupSectionHeader (sectionOutput, "OUTPUT", juce::Colour (accentOutput), *this);
+
+    setupSlider (inputSlider, inputLabel, "Gain", juce::Colour (accentInput), *this);
+    setupSlider (lowGainSlider, lowLabel, "Gain", juce::Colour (accentLow), *this);
+    setupSlider (midGainSlider, midLabel, "Gain", juce::Colour (accentMid), *this);
+    setupSlider (highGainSlider, highLabel, "Gain", juce::Colour (accentHigh), *this);
+    setupSlider (outputSlider, outputLabel, "Gain", juce::Colour (accentOutput), *this);
 
     hpfFreqBox.addItemList (Ee1073AudioProcessor::hpfFreqChoices(), 1);
     lowFreqBox.addItemList (Ee1073AudioProcessor::lowShelfFreqChoices(), 1);
@@ -65,11 +69,10 @@ Ee1073AudioProcessorEditor::Ee1073AudioProcessorEditor (Ee1073AudioProcessor& p)
 
     addAndMakeVisible (hpfOnButton);
     addAndMakeVisible (eqOnButton);
-    eqOnButton.setColour (juce::ToggleButton::textColourId, juce::Colour (0xffb8c4dd));
 
     midQLabel.setJustificationType (juce::Justification::centred);
     midQLabel.setFont (juce::FontOptions (11.0f));
-    midQLabel.setColour (juce::Label::textColourId, juce::Colour (0xff7d8bab));
+    midQLabel.setColour (juce::Label::textColourId, juce::Colour (accentMid).withAlpha (0.75f));
     addAndMakeVisible (midQLabel);
 
     auto& apvts = processor.apvts;
@@ -94,6 +97,7 @@ Ee1073AudioProcessorEditor::Ee1073AudioProcessorEditor (Ee1073AudioProcessor& p)
 Ee1073AudioProcessorEditor::~Ee1073AudioProcessorEditor()
 {
     stopTimer();
+    setLookAndFeel (nullptr);
 }
 
 void Ee1073AudioProcessorEditor::timerCallback()
@@ -104,11 +108,25 @@ void Ee1073AudioProcessorEditor::timerCallback()
 
 void Ee1073AudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff1c202c));
+    Ee1073LookAndFeel::paintPanelBackground (g, getLocalBounds());
 
     auto headerArea = getLocalBounds().removeFromTop (headerHeight);
-    g.setColour (juce::Colour (0xff262c3d));
+    g.setColour (juce::Colour (0xff11141c).withAlpha (0.55f));
     g.fillRect (headerArea);
+
+    // Thin multicolour accent strip echoing the six section colours,
+    // running along the bottom edge of the header bar.
+    const juce::Colour stripColours[] = {
+        juce::Colour (accentInput), juce::Colour (accentHpf), juce::Colour (accentLow),
+        juce::Colour (accentMid), juce::Colour (accentHigh), juce::Colour (accentOutput)
+    };
+    const float stripSegmentWidth = static_cast<float> (getWidth()) / (float) std::size (stripColours);
+    for (size_t i = 0; i < std::size (stripColours); ++i)
+    {
+        g.setColour (stripColours[i]);
+        g.fillRect (juce::Rectangle<float> (stripSegmentWidth * (float) i, (float) headerHeight - 3.0f,
+                                             stripSegmentWidth, 3.0f));
+    }
 
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (20.0f, juce::Font::bold));

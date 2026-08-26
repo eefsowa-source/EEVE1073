@@ -21,7 +21,8 @@ if(EE1073_BUILD_PLUGIN)
 
     target_sources(EE1073 PRIVATE
         Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp)
+        Source/PluginEditor.cpp
+        Source/Ee1073LookAndFeel.cpp)
 
     target_include_directories(EE1073 PRIVATE Shared)
 
