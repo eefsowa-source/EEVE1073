@@ -2,12 +2,12 @@
 
 namespace
 {
-constexpr auto kPanelSlate = 0xff474f5c;   // blue-grey anodized panel, top
-constexpr auto kPanelSlateDark = 0xff2e333d; // panel, bottom
-constexpr auto kAluminum = 0xffc9cdd4;
-constexpr auto kAluminumShadow = 0xff7d838f;
-constexpr auto kPointerBlack = 0xff1a1a1c;
-constexpr auto kTrackDim = 0xff5a616f;
+constexpr auto kPanelMint = 0xff2f6f5c;      // mint-green anodized panel, top
+constexpr auto kPanelMintDark = 0xff17362c;  // panel, bottom
+constexpr auto kAluminum = 0xffccd8d2;       // aluminum knob cap, faintly mint-tinted
+constexpr auto kAluminumShadow = 0xff6f8c7f;
+constexpr auto kPointerBlack = 0xff16211c;
+constexpr auto kTrackDim = 0xff4d7566;
 }
 
 Ee1176LookAndFeel::Ee1176LookAndFeel()
@@ -43,10 +43,12 @@ void Ee1176LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     g.setColour (accent);
     g.strokePath (fill, juce::PathStrokeType (2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // Knurled aluminum knob cap.
+    // Knurled aluminum knob cap, tinted by the accent colour.
     const auto capRadius = radius * 0.72f;
-    juce::ColourGradient capGradient (juce::Colour (kAluminum).brighter (0.2f), centre.x - capRadius * 0.4f,
-                                       centre.y - capRadius * 0.5f, juce::Colour (kAluminumShadow),
+    const auto capBase = juce::Colour (kAluminum).interpolatedWith (accent, 0.12f);
+    const auto capShadow = juce::Colour (kAluminumShadow).interpolatedWith (accent, 0.18f);
+    juce::ColourGradient capGradient (capBase.brighter (0.2f), centre.x - capRadius * 0.4f,
+                                       centre.y - capRadius * 0.5f, capShadow,
                                        centre.x, centre.y + capRadius, true);
     g.setGradientFill (capGradient);
     g.fillEllipse (centre.x - capRadius, centre.y - capRadius, capRadius * 2.0f, capRadius * 2.0f);
@@ -94,8 +96,8 @@ void Ee1176LookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton&
     const auto switchWidth = juce::jmin (bounds.getWidth() * 0.5f, 30.0f);
     auto switchBounds = bounds.removeFromLeft (switchWidth).reduced (2.0f);
 
-    const auto onColour = juce::Colour (0xff5fd97a);
-    const auto offColour = juce::Colour (0xff23262c);
+    const auto onColour = juce::Colour (0xff6fe3b4);
+    const auto offColour = juce::Colour (0xff173026);
 
     g.setColour (isOn ? onColour : offColour);
     g.fillRoundedRectangle (switchBounds, switchBounds.getHeight() * 0.5f);
@@ -123,8 +125,8 @@ juce::Font Ee1176LookAndFeel::getLabelFont (juce::Label&)
 
 void Ee1176LookAndFeel::paintRackPanel (juce::Graphics& g, juce::Rectangle<int> bounds)
 {
-    juce::ColourGradient panelGradient (juce::Colour (kPanelSlate), (float) bounds.getX(), (float) bounds.getY(),
-                                         juce::Colour (kPanelSlateDark), (float) bounds.getX(),
+    juce::ColourGradient panelGradient (juce::Colour (kPanelMint), (float) bounds.getX(), (float) bounds.getY(),
+                                         juce::Colour (kPanelMintDark), (float) bounds.getX(),
                                          (float) bounds.getBottom(), false);
     g.setGradientFill (panelGradient);
     g.fillRect (bounds);

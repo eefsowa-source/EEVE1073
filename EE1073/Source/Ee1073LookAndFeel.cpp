@@ -39,7 +39,7 @@ void Ee1073LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     track.addCentredArc (centre.x, centre.y, radius * 0.92f, radius * 0.92f, 0.0f,
                           rotaryStartAngle, rotaryEndAngle, true);
     g.setColour (juce::Colour (kTrackDim));
-    g.strokePath (track, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.strokePath (track, juce::PathStrokeType (4.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Fill arc from the 0-position (proportional 0.5 for bipolar gain
     // params, which is what most EE-1073 knobs are) to the current value.
@@ -52,11 +52,13 @@ void Ee1073LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     fill.addCentredArc (centre.x, centre.y, radius * 0.92f, radius * 0.92f, 0.0f,
                          juce::jmin (zeroAngle, angle), juce::jmax (zeroAngle, angle), true);
     g.setColour (accent);
-    g.strokePath (fill, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.strokePath (fill, juce::PathStrokeType (4.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Knob cap: radial gradient giving a domed metal-cream look, tinted
     // slightly by the accent colour (used for the red Input / blue HPF caps).
-    const auto capRadius = radius * 0.68f;
+    // Sized larger/chunkier relative to the control bounds than a typical
+    // knob for a bolder, thicker look.
+    const auto capRadius = radius * 0.78f;
     const auto capBase = juce::Colour (kCream).interpolatedWith (accent, 0.12f);
     const auto capShadow = juce::Colour (kCreamShadow).interpolatedWith (accent, 0.18f);
     juce::ColourGradient capGradient (capBase.brighter (0.15f), centre.x - capRadius * 0.4f,
@@ -71,7 +73,7 @@ void Ee1073LookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
     // Pointer.
     juce::Path pointer;
     const float pointerLength = capRadius * 0.82f;
-    const float pointerThickness = 3.0f;
+    const float pointerThickness = juce::jmax (3.0f, capRadius * 0.12f);
     pointer.addRoundedRectangle (-pointerThickness * 0.5f, -pointerLength, pointerThickness,
                                   pointerLength * 0.6f, pointerThickness * 0.5f);
     g.setColour (juce::Colour (kNeedleRed));
@@ -98,7 +100,7 @@ void Ee1073LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int w
     const auto trackX = bounds.getCentreX();
 
     // Slot / track groove.
-    const float trackWidth = 6.0f;
+    const float trackWidth = 8.0f;
     juce::Rectangle<float> track (trackX - trackWidth * 0.5f, bounds.getY() + 6.0f, trackWidth,
                                    bounds.getHeight() - 12.0f);
     g.setColour (juce::Colours::black.withAlpha (0.6f));
@@ -121,8 +123,8 @@ void Ee1073LookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int w
 
     // Fader cap: a wide metal block with horizontal grip ridges, centred on
     // sliderPos.
-    const float capWidth = juce::jmin (bounds.getWidth() - 4.0f, 34.0f);
-    const float capHeight = 22.0f;
+    const float capWidth = juce::jmin (bounds.getWidth() - 4.0f, 42.0f);
+    const float capHeight = 26.0f;
     juce::Rectangle<float> cap (trackX - capWidth * 0.5f, sliderPos - capHeight * 0.5f, capWidth, capHeight);
 
     g.setColour (juce::Colours::black.withAlpha (0.35f));

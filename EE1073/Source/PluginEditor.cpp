@@ -106,7 +106,7 @@ Ee1073AudioProcessorEditor::Ee1073AudioProcessorEditor (Ee1073AudioProcessor& p)
     phaseAttachment = std::make_unique<ButtonAttachment> (apvts, "phaseInvert", phaseButton);
     powerAttachment = std::make_unique<ButtonAttachment> (apvts, "power", powerButton);
 
-    setSize (340, 680);
+    setSize (368, 748);
     startTimerHz (15);
     timerCallback();
 }
@@ -198,24 +198,24 @@ void Ee1073AudioProcessorEditor::resized()
         return row; // whatever remains, for a freq combo / value label
     };
 
-    auto inputRow = left.removeFromTop (92);
-    auto rest1 = layoutKnobRow (inputRow, inputLabel, inputSlider, 62);
+    auto inputRow = left.removeFromTop (108);
+    auto rest1 = layoutKnobRow (inputRow, inputLabel, inputSlider, 80);
     juce::ignoreUnused (rest1);
 
-    auto highRow = left.removeFromTop (86);
-    layoutKnobRow (highRow, highLabel, highGainSlider, 56);
+    auto highRow = left.removeFromTop (100);
+    layoutKnobRow (highRow, highLabel, highGainSlider, 72);
 
-    auto midRow = left.removeFromTop (100);
-    auto midRest = layoutKnobRow (midRow, midLabel, midGainSlider, 56);
+    auto midRow = left.removeFromTop (114);
+    auto midRest = layoutKnobRow (midRow, midLabel, midGainSlider, 72);
     midFreqBox.setBounds (midRest.removeFromTop (18).reduced (6, 0));
     midQLabel.setBounds (midRest.removeFromTop (14));
 
-    auto lowRow = left.removeFromTop (100);
-    auto lowRest = layoutKnobRow (lowRow, lowLabel, lowGainSlider, 56);
+    auto lowRow = left.removeFromTop (114);
+    auto lowRest = layoutKnobRow (lowRow, lowLabel, lowGainSlider, 72);
     lowFreqBox.setBounds (lowRest.removeFromTop (18).reduced (6, 0));
 
-    auto hpfRow = left.removeFromTop (92);
-    auto hpfRest = layoutKnobRow (hpfRow, hpfLabel, hpfSlider, 56);
+    auto hpfRow = left.removeFromTop (108);
+    auto hpfRest = layoutKnobRow (hpfRow, hpfLabel, hpfSlider, 72);
     hpfValueLabel.setBounds (hpfRest.removeFromTop (14));
 
     auto buttonsRow = left; // remaining space
