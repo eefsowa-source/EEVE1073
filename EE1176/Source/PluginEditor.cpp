@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include <array>
 
 namespace
 {
@@ -24,12 +25,34 @@ Ee1176AudioProcessorEditor::Ee1176AudioProcessorEditor (Ee1176AudioProcessor& p)
 {
     setLookAndFeel (&lookAndFeel);
 
-    const auto mint = juce::Colour (accentMint);
-    setupKnob (inputSlider, inputLabel, "INPUT", mint, 12.0f, *this);
-    setupKnob (outputSlider, outputLabel, "OUTPUT", mint, 12.0f, *this);
-    setupKnob (attackSlider, attackLabel, "ATTACK", mint, 10.0f, *this);
-    setupKnob (releaseSlider, releaseLabel, "RELEASE", mint, 10.0f, *this);
-    setupKnob (ratioSlider, ratioLabel, "RATIO", mint, 10.0f, *this);
+    const auto accent = juce::Colour (accentMint);
+    setupKnob (inputSlider, inputLabel, "INPUT", accent, 12.0f, *this);
+    setupKnob (outputSlider, outputLabel, "OUTPUT", accent, 12.0f, *this);
+    setupKnob (attackSlider, attackLabel, "ATTACK", accent, 10.0f, *this);
+    setupKnob (releaseSlider, releaseLabel, "RELEASE", accent, 10.0f, *this);
+    ratioLabel.setText ("COMP RATIO", juce::dontSendNotification);
+    ratioLabel.setJustificationType (juce::Justification::centred);
+    ratioLabel.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    addAndMakeVisible (ratioLabel);
+
+    const char* ratioNames[] = { "4:1", "8:1", "12:1", "20:1", "ALL" };
+    for (size_t i = 0; i < ratioButtons.size(); ++i)
+    {
+        auto& button = ratioButtons[i];
+        button.setButtonText (ratioNames[i]);
+        button.setClickingTogglesState (false);
+        button.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff26343d));
+        button.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff79d8b1));
+        button.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffd8e4e7));
+        button.setColour (juce::TextButton::textColourOnId, juce::Colour (0xff10231d));
+        button.setRadioGroupId (1176);
+        button.onClick = [this, i]
+        {
+            if (auto* parameter = processor.apvts.getParameter ("ratio"))
+                parameter->setValueNotifyingHost (static_cast<float> (i) / 4.0f);
+        };
+        addAndMakeVisible (button);
+    }
 
     addAndMakeVisible (powerButton);
 
@@ -50,10 +73,9 @@ Ee1176AudioProcessorEditor::Ee1176AudioProcessorEditor (Ee1176AudioProcessor& p)
     outputAttachment = std::make_unique<SliderAttachment> (apvts, "output", outputSlider);
     attackAttachment = std::make_unique<SliderAttachment> (apvts, "attack", attackSlider);
     releaseAttachment = std::make_unique<SliderAttachment> (apvts, "release", releaseSlider);
-    ratioAttachment = std::make_unique<SliderAttachment> (apvts, "ratio", ratioSlider);
     powerAttachment = std::make_unique<ButtonAttachment> (apvts, "power", powerButton);
 
-    setSize (640, 260);
+    setSize (820, 300);
     startTimerHz (30);
 }
 
@@ -66,6 +88,25 @@ Ee1176AudioProcessorEditor::~Ee1176AudioProcessorEditor()
 void Ee1176AudioProcessorEditor::timerCallback()
 {
     repaint (meterBounds);
+
+    const bool shiftDown = juce::ModifierKeys::getCurrentModifiers().isShiftDown();
+    if (shiftDown && ! shiftAllActive)
+    {
+        ratioBeforeShift = static_cast<int> (processor.apvts.getRawParameterValue ("ratio")->load() + 0.5f);
+        if (auto* parameter = processor.apvts.getParameter ("ratio"))
+            parameter->setValueNotifyingHost (1.0f);
+        shiftAllActive = true;
+    }
+    else if (! shiftDown && shiftAllActive)
+    {
+        if (auto* parameter = processor.apvts.getParameter ("ratio"))
+            parameter->setValueNotifyingHost (static_cast<float> (juce::jlimit (0, 4, ratioBeforeShift)) / 4.0f);
+        shiftAllActive = false;
+    }
+
+    const auto ratio = shiftAllActive ? 4 : static_cast<int> (processor.apvts.getRawParameterValue ("ratio")->load() + 0.5f);
+    for (size_t i = 0; i < ratioButtons.size(); ++i)
+        ratioButtons[i].setToggleState (static_cast<int> (i) == ratio, juce::dontSendNotification);
 }
 
 void Ee1176AudioProcessorEditor::paint (juce::Graphics& g)
@@ -83,10 +124,18 @@ void Ee1176AudioProcessorEditor::paint (juce::Graphics& g)
 
 void Ee1176AudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced (frameThickness).reduced (16, 8);
+    auto area = getLocalBounds().reduced (frameThickness).reduced (18, 14);
 
-    nameplateLabel.setBounds (area.removeFromBottom (18));
-    area.removeFromBottom (4);
+    nameplateLabel.setBounds (area.removeFromTop (26));
+    area.removeFromTop (10);
+
+    // Match the classic front panel: input/output on the left, timing in the
+    // centre, ratio buttons and the GR meter on the right.
+    auto controls = area;
+    auto meterCol = controls.removeFromRight (190);
+    meterCaptionLabel.setBounds (meterCol.removeFromBottom (18));
+    meterBounds = meterCol.reduced (8, 4);
+    controls.removeFromRight (16);
 
     auto layoutKnob = [] (juce::Rectangle<int> col, juce::Label& label, juce::Slider& knob, int knobSize)
     {
@@ -94,30 +143,22 @@ void Ee1176AudioProcessorEditor::resized()
         knob.setBounds (col.removeFromTop (knobSize).withSizeKeepingCentre (knobSize, knobSize));
     };
 
-    // INPUT (large) -- far left.
-    auto inputCol = area.removeFromLeft (100);
-    layoutKnob (inputCol, inputLabel, inputSlider, 74);
+    auto topRow = controls.removeFromTop (150);
+    layoutKnob (topRow.removeFromLeft (155), inputLabel, inputSlider, 112);
+    layoutKnob (topRow.removeFromLeft (155), outputLabel, outputSlider, 112);
 
-    // OUTPUT (large) -- right next to Input.
-    auto outputCol = area.removeFromLeft (100);
-    layoutKnob (outputCol, outputLabel, outputSlider, 74);
+    controls.removeFromTop (8);
+    auto timing = controls.removeFromLeft (130);
+    layoutKnob (timing.removeFromTop (72), attackLabel, attackSlider, 58);
+    layoutKnob (timing.removeFromTop (72), releaseLabel, releaseSlider, 58);
 
-    // ATTACK stacked above RELEASE, one column.
-    auto arCol = area.removeFromLeft (86);
-    layoutKnob (arCol.removeFromTop (78), attackLabel, attackSlider, 52);
-    layoutKnob (arCol, releaseLabel, releaseSlider, 52);
+    auto ratioBay = controls.removeFromLeft (110);
+    ratioLabel.setBounds (ratioBay.removeFromTop (18));
+    auto ratioColumn = ratioBay.reduced (8, 2);
+    const auto buttonHeight = ratioColumn.getHeight() / static_cast<int> (ratioButtons.size());
+    for (auto& button : ratioButtons)
+        button.setBounds (ratioColumn.removeFromTop (buttonHeight).reduced (2, 1));
 
-    // RATIO (small) -- just left of the meter.
-    auto ratioCol = area.removeFromLeft (86);
-    ratioCol.removeFromTop (26); // roughly vertically centred, single knob
-    layoutKnob (ratioCol, ratioLabel, ratioSlider, 60);
-
-    // POWER switch -- bottom-right corner.
-    powerButton.setBounds (getWidth() - frameThickness - 90, getHeight() - frameThickness - 30, 80, 20);
-
-    // Everything remaining on the right is the VU meter.
-    auto meterCol = area;
-    meterCaptionLabel.setBounds (meterCol.removeFromBottom (14));
-    meterCol.removeFromBottom (24); // leave room above the Power switch
-    meterBounds = meterCol.reduced (6, 4);
+    powerButton.setBounds (getLocalBounds().getRight() - frameThickness - 94,
+                           getLocalBounds().getBottom() - frameThickness - 26, 84, 22);
 }

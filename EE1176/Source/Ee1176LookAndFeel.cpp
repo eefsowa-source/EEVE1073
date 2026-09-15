@@ -2,12 +2,12 @@
 
 namespace
 {
-constexpr auto kPanelMint = 0xff2f6f5c;      // mint-green anodized panel, top
-constexpr auto kPanelMintDark = 0xff17362c;  // panel, bottom
-constexpr auto kAluminum = 0xffccd8d2;       // aluminum knob cap, faintly mint-tinted
-constexpr auto kAluminumShadow = 0xff6f8c7f;
-constexpr auto kPointerBlack = 0xff16211c;
-constexpr auto kTrackDim = 0xff4d7566;
+constexpr auto kPanelMint = 0xff3a4855;      // classic blue-grey faceplate
+constexpr auto kPanelMintDark = 0xff171d23;
+constexpr auto kAluminum = 0xffd9dee1;
+constexpr auto kAluminumShadow = 0xff78838c;
+constexpr auto kPointerBlack = 0xff11161b;
+constexpr auto kTrackDim = 0xff657887;
 }
 
 Ee1176LookAndFeel::Ee1176LookAndFeel()

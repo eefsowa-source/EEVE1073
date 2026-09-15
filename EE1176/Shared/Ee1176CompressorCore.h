@@ -73,7 +73,16 @@ public:
         previousOutput = 0.0f;
     }
 
-    void setParameters (const Parameters& p) { params = p; }
+    void setParameters (const Parameters& p)
+    {
+        params = p;
+        params.inputGainDb = finiteOr (params.inputGainDb, 0.0f, -60.0f, 60.0f);
+        params.outputGainDb = finiteOr (params.outputGainDb, 0.0f, -60.0f, 60.0f);
+        params.attackMs = finiteOr (params.attackMs, 0.4f, 0.001f, 5000.0f);
+        params.releaseMs = finiteOr (params.releaseMs, 300.0f, 0.001f, 10000.0f);
+        params.ratioTrim = finiteOr (params.ratioTrim, 0.0f, -1.0f, 1.0f);
+        params.attackTrimMs = finiteOr (params.attackTrimMs, 0.0f, -1.0f, 1.0f);
+    }
 
     // Processes one sample of a single channel. Call once per channel per
     // sample, or extend to block/multi-channel processing as needed.
@@ -88,7 +97,7 @@ public:
         // --- Feedback-style detector: level tracked on the previous
         // output sample, not the incoming signal, matching the 1176's
         // detector-after-gain-element topology.
-        const float detectLevel = std::abs (previousOutput);
+        const float detectLevel = std::max (std::abs (previousOutput), std::abs (xIn) * 0.35f);
         const float detectDb = gainToDb (detectLevel);
 
         const float effectiveAttackMs = params.attackMs + params.attackTrimMs;
@@ -102,7 +111,7 @@ public:
         // but harder on strong peaks (per blueprint).
         const float ratioValue = (british ? britishRatioValue() : ratioToValue (params.ratio))
                                 * (1.0f + params.ratioTrim * 0.2f);
-        const float thresholdDb = baseThresholdDb + ratioThresholdShiftDb (params.ratio);
+        const float thresholdDb = baseThresholdDb;
 
         // --- Soft-knee downward compression in the dB domain.
         const float overDb = envelopeDb - thresholdDb;
@@ -154,6 +163,11 @@ public:
     float getGainReductionDb() const { return lastGainReductionDb; }
 
 private:
+    static float finiteOr (float value, float fallback, float minimum, float maximum)
+    {
+        return std::isfinite (value) ? std::clamp (value, minimum, maximum) : fallback;
+    }
+
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
     static float gainToDb (float g) { return 20.0f * std::log10 (std::max (g, 1.0e-6f)); }
 

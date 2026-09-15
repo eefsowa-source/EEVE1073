@@ -42,3 +42,10 @@ endif()
 
 add_subdirectory(EE1176)
 add_subdirectory(EE1073)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(ee1073_dc_regression
+        tests/ee1073_dc_regression.cpp)
+    add_test(NAME ee1073_dc_regression COMMAND ee1073_dc_regression)
+endif()

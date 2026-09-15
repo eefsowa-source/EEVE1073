@@ -4,7 +4,7 @@
 
 namespace
 {
-constexpr int frameThickness = 18;
+constexpr int frameThickness = 12;
 
 void setupKnob (juce::Slider& s, juce::Colour accent, juce::Component& parent)
 {
@@ -106,7 +106,7 @@ Ee1073AudioProcessorEditor::Ee1073AudioProcessorEditor (Ee1073AudioProcessor& p)
     phaseAttachment = std::make_unique<ButtonAttachment> (apvts, "phaseInvert", phaseButton);
     powerAttachment = std::make_unique<ButtonAttachment> (apvts, "power", powerButton);
 
-    setSize (368, 748);
+    setSize (352, 704);
     startTimerHz (15);
     timerCallback();
 }
@@ -139,16 +139,28 @@ void Ee1073AudioProcessorEditor::paint (juce::Graphics& g)
     Ee1073LookAndFeel::paintBrushedPanel (g, rightPanelBounds, juce::Colour (0xffb9bfc9),
                                           juce::Colour (0xff8b909c), true);
 
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
     g.drawVerticalLine (leftPanelBounds.getRight(), (float) panelBounds.getY(), (float) panelBounds.getBottom());
+    g.setColour (juce::Colours::white.withAlpha (0.16f));
+    g.drawVerticalLine (leftPanelBounds.getRight() - 1, (float) panelBounds.getY() + 2.0f,
+                        (float) panelBounds.getBottom() - 2.0f);
+
+    g.setColour (juce::Colours::black.withAlpha (0.34f));
+    g.drawRect (leftPanelBounds.reduced (4), 1.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.1f));
+    g.drawRect (rightPanelBounds.reduced (4), 1.0f);
 
     // Brand roundel at the top of the silver (fader) panel.
     const auto logoBounds = juce::Rectangle<float> (0, 0, 40.0f, 40.0f)
                                  .withCentre ({ (float) rightPanelBounds.getCentreX(),
                                                 (float) rightPanelBounds.getY() + 32.0f });
-    g.setColour (juce::Colour (0xff2b2f3a));
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.fillEllipse (logoBounds.translated (0.0f, 2.0f));
+    juce::ColourGradient logoGradient (juce::Colour (0xff687181), logoBounds.getX(), logoBounds.getY(),
+                                       juce::Colour (0xff252a34), logoBounds.getRight(), logoBounds.getBottom(), true);
+    g.setGradientFill (logoGradient);
     g.fillEllipse (logoBounds);
-    g.setColour (juce::Colour (0xffd8dde6));
+    g.setColour (juce::Colour (0xffd8dde6).withAlpha (0.9f));
     g.drawEllipse (logoBounds, 1.5f);
     g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
     g.drawFittedText ("EE", logoBounds.toNearestInt(), juce::Justification::centred, 1);
@@ -176,7 +188,12 @@ void Ee1073AudioProcessorEditor::paint (juce::Graphics& g)
     const auto ledBounds = juce::Rectangle<float> (0, 0, 7.0f, 7.0f)
                                 .withCentre ({ (float) eqOnButton.getBounds().getRight() + 12.0f,
                                                (float) eqOnButton.getBounds().getCentreY() });
-    g.setColour (eqOnButton.getToggleState() ? juce::Colour (0xff5fd97a) : juce::Colour (0xff2a2f3a));
+    if (eqOnButton.getToggleState())
+    {
+        g.setColour (juce::Colour (0xff5fd97a).withAlpha (0.18f));
+        g.fillEllipse (ledBounds.expanded (4.0f));
+    }
+    g.setColour (eqOnButton.getToggleState() ? juce::Colour (0xff8dff9c) : juce::Colour (0xff2a2f3a));
     g.fillEllipse (ledBounds);
 }
 
@@ -189,46 +206,46 @@ void Ee1073AudioProcessorEditor::resized()
     rightPanelBounds = panelBounds.withTrimmedLeft (leftWidth);
 
     // ---- Left (dark EQ) panel ----
-    auto left = leftPanelBounds.reduced (14, 10);
+    auto left = leftPanelBounds.reduced (9, 7);
 
     auto layoutKnobRow = [&] (juce::Rectangle<int> row, juce::Label& header, juce::Slider& knob, int knobSize)
     {
-        header.setBounds (row.removeFromTop (14));
+        header.setBounds (row.removeFromTop (13));
         knob.setBounds (row.removeFromTop (knobSize).withSizeKeepingCentre (knobSize, knobSize));
         return row; // whatever remains, for a freq combo / value label
     };
 
-    auto inputRow = left.removeFromTop (108);
+    auto inputRow = left.removeFromTop (96);
     auto rest1 = layoutKnobRow (inputRow, inputLabel, inputSlider, 80);
     juce::ignoreUnused (rest1);
 
-    auto highRow = left.removeFromTop (100);
-    layoutKnobRow (highRow, highLabel, highGainSlider, 72);
+    auto highRow = left.removeFromTop (88);
+    layoutKnobRow (highRow, highLabel, highGainSlider, 64);
 
-    auto midRow = left.removeFromTop (114);
-    auto midRest = layoutKnobRow (midRow, midLabel, midGainSlider, 72);
-    midFreqBox.setBounds (midRest.removeFromTop (18).reduced (6, 0));
-    midQLabel.setBounds (midRest.removeFromTop (14));
+    auto midRow = left.removeFromTop (102);
+    auto midRest = layoutKnobRow (midRow, midLabel, midGainSlider, 64);
+    midFreqBox.setBounds (midRest.removeFromTop (17).reduced (5, 0));
+    midQLabel.setBounds (midRest.removeFromTop (13));
 
-    auto lowRow = left.removeFromTop (114);
-    auto lowRest = layoutKnobRow (lowRow, lowLabel, lowGainSlider, 72);
-    lowFreqBox.setBounds (lowRest.removeFromTop (18).reduced (6, 0));
+    auto lowRow = left.removeFromTop (102);
+    auto lowRest = layoutKnobRow (lowRow, lowLabel, lowGainSlider, 64);
+    lowFreqBox.setBounds (lowRest.removeFromTop (17).reduced (5, 0));
 
-    auto hpfRow = left.removeFromTop (108);
-    auto hpfRest = layoutKnobRow (hpfRow, hpfLabel, hpfSlider, 72);
-    hpfValueLabel.setBounds (hpfRest.removeFromTop (14));
+    auto hpfRow = left.removeFromTop (96);
+    auto hpfRest = layoutKnobRow (hpfRow, hpfLabel, hpfSlider, 64);
+    hpfValueLabel.setBounds (hpfRest.removeFromTop (13));
 
     auto buttonsRow = left; // remaining space
-    auto buttonsTop = buttonsRow.removeFromTop (24);
-    eqOnButton.setBounds (buttonsTop.removeFromLeft (60));
-    buttonsTop.removeFromLeft (20); // leave room for the LED drawn in paint()
-    phaseButton.setBounds (buttonsTop.removeFromLeft (60));
-    nameplateLabel.setBounds (buttonsRow.removeFromBottom (20));
+    auto buttonsTop = buttonsRow.removeFromTop (26);
+    eqOnButton.setBounds (buttonsTop.removeFromLeft (56));
+    buttonsTop.removeFromLeft (18); // leave room for the LED drawn in paint()
+    phaseButton.setBounds (buttonsTop.removeFromLeft (58));
+    nameplateLabel.setBounds (buttonsRow.removeFromBottom (18));
 
     // ---- Right (silver fader) panel ----
-    auto right = rightPanelBounds.reduced (0, 10);
-    right.removeFromTop (54); // logo roundel, drawn in paint()
-    powerButton.setBounds (right.removeFromBottom (26).withSizeKeepingCentre (70, 22));
-    outputLabel.setBounds (right.removeFromBottom (16));
-    outputFader.setBounds (right.reduced (46, 6));
+    auto right = rightPanelBounds.reduced (0, 7);
+    right.removeFromTop (48); // logo roundel, drawn in paint()
+    powerButton.setBounds (right.removeFromBottom (24).withSizeKeepingCentre (68, 21));
+    outputLabel.setBounds (right.removeFromBottom (15));
+    outputFader.setBounds (right.reduced (40, 5));
 }

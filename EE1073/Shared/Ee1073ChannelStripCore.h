@@ -162,6 +162,7 @@ public:
     void prepare (double sampleRate)
     {
         sr = sampleRate;
+        dcBlockCoefficient = static_cast<float> (std::exp (-2.0 * M_PI * 5.0 / std::max (1.0, sr)));
         reset();
         dirty = true;
     }
@@ -175,13 +176,27 @@ public:
         harmonicShapeFilter.reset();
         inputHysteresis = 0.0f;
         outputHysteresis = 0.0f;
+        dcBlockInput = 0.0f;
+        dcBlockOutput = 0.0f;
     }
 
     void setParameters (const Parameters& p)
     {
-        if (! (p == params))
+        auto safe = p;
+        // Max attributes are not range-limited, so keep malformed host/UI
+        // values from poisoning the biquad coefficients or signal path.
+        safe.inputGainDb = finiteOr (safe.inputGainDb, 0.0f, -60.0f, 60.0f);
+        safe.outputGainDb = finiteOr (safe.outputGainDb, 0.0f, -60.0f, 60.0f);
+        safe.lowShelfGainDb = finiteOr (safe.lowShelfGainDb, 0.0f, -36.0f, 36.0f);
+        safe.midGainDb = finiteOr (safe.midGainDb, 0.0f, -36.0f, 36.0f);
+        safe.highShelfGainDb = finiteOr (safe.highShelfGainDb, 0.0f, -36.0f, 36.0f);
+        safe.hpfFreqHz = safeFrequency (safe.hpfFreqHz, 80.0f);
+        safe.lowShelfFreqHz = safeFrequency (safe.lowShelfFreqHz, 60.0f);
+        safe.midFreqHz = safeFrequency (safe.midFreqHz, 1000.0f);
+
+        if (! (safe == params))
             dirty = true;
-        params = p;
+        params = safe;
     }
 
     float processSample (float x)
@@ -220,6 +235,7 @@ public:
         }
 
         y = transformerStage (y, outputHysteresis, transformerAsymmetry);
+        y = removeDc (y);
         y *= dbToGain (params.outputGainDb);
 
         if (params.phaseInvert)
@@ -229,6 +245,17 @@ public:
     }
 
 private:
+    static float finiteOr (float value, float fallback, float minimum, float maximum)
+    {
+        return std::isfinite (value) ? std::clamp (value, minimum, maximum) : fallback;
+    }
+
+    float safeFrequency (float value, float fallback) const
+    {
+        const auto nyquist = static_cast<float> (std::max (1.0, sr) * 0.45);
+        return finiteOr (value, fallback, 10.0f, std::max (10.0f, nyquist));
+    }
+
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
     static float lerp (float a, float b, float t) { return a + (b - a) * t; }
 
@@ -240,6 +267,14 @@ private:
     {
         const float shifted = x + asymmetry;
         return std::tanh (shifted * drive) / std::tanh (drive) - std::tanh (asymmetry * drive) / std::tanh (drive);
+    }
+
+    float removeDc (float input)
+    {
+        const auto output = input - dcBlockInput + dcBlockCoefficient * dcBlockOutput;
+        dcBlockInput = input;
+        dcBlockOutput = output;
+        return output;
     }
 
     // Saturation with a lagging "memory" term standing in for transformer
@@ -295,6 +330,9 @@ private:
     Biquad hpf, lowShelf, midPeak, highShelf, harmonicShapeFilter;
     float inputHysteresis = 0.0f;
     float outputHysteresis = 0.0f;
+    float dcBlockInput = 0.0f;
+    float dcBlockOutput = 0.0f;
+    float dcBlockCoefficient = 0.999f;
 };
 
 } // namespace ee1073
@@ -308,4 +346,3 @@ inline bool validateParameters (const ee1073::Parameters& p)
         && p.midFreqHz > 0.0f
         && p.highShelfGainDb >= -16.0f && p.highShelfGainDb <= 16.0f;
 }
-
