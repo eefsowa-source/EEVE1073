@@ -5,6 +5,7 @@
 if(EE1073_BUILD_PLUGIN)
     juce_add_plugin(EE1073
         COMPANY_NAME "EON Audio"
+        COMPANY_COPYRIGHT "Copyright (c) 2026 EON Audio"
         BUNDLE_ID "com.eonaudio.ee1073"
         PLUGIN_MANUFACTURER_CODE Eone
         PLUGIN_CODE Ev73
